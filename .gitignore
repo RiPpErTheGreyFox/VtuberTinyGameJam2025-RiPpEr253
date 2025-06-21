@@ -1,0 +1,7 @@
+#object files
+*.o
+#bin files
+*.gb
+#intermediate files
+*.2bpp
+*.tilemap
