@@ -217,26 +217,25 @@ TileLoader:
 	jp z, .bank2
 
 .bank0
-	ld a, [wTileBankZero]
-	ld h, a
-	ld a, [wTileBankZero + 1]
-	ld l, a
-	push hl
-	;ld hl, [wTileBankZero]
-	call Memcopy				; call the memcopy subroutine
-	ld a, h
-	ld [wTileBankZero], a
-	ld a, l
-	ld [wTileBankZero + 1], a
+	ld a, [wTileBankZero]					; Get the MSB of the tile bank's first free tile address
+	ld h, a									; load it into the H register
+	ld a, [wTileBankZero + 1]				; now the LSB
+	ld l, a									; into the L register
+	push hl									; store the current address onto the stack
+	call Memcopy							; call the memcopy subroutine
+	ld a, h									
+	ld [wTileBankZero], a					; store the address of the next free tile
+	ld a, l									
+	ld [wTileBankZero + 1], a				
 	; get the beginning address (HL) - the base address, divide by 16 and that should give the tile indicies
-	pop hl
-	ld a, h
-	sub $80
-	ld b, a
-	ld a, l
-	sub $00
-	ld c, a
-	jp .DivideAndReturn
+	pop hl									; grab the first address off of the stack
+	ld a, h									; do a 16-bit subtraction and store the result in BC
+	sub $80									
+	ld b, a									
+	ld a, l									
+	sub $00									
+	ld c, a									
+	jp .DivideAndReturn						; jumpt to the divide function
 
 .bank1
 	ld a, [wTileBankOne]
