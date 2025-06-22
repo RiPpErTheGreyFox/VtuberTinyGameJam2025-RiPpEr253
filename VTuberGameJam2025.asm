@@ -660,14 +660,62 @@ UpdatePlayer:
 ; call to load the tiles and initialise variables
 InitialiseBoxes:
 	ld a, 0
+	ld [wBoxInPlay], a
 	ld [currentActiveBox_YPos], a
 	ld [currentActiveBox_XPos], a
+	ld a, 16
+	ld [currentActiveBox_OAMOffset], a				; set the OAM offset to be clear of the player character
+
+	ld de, BoxesSpriteData
+	ld bc, BoxesSpriteDataEnd - BoxesSpriteData
+	ld a, 1											; make sure that the boxes tiles are loaded in the middle bank
+
+	call TileLoader
+
+	ld a, c
 	ld [currentActiveBox_Tile], a
-	ld [currentActiveBox_OAMOffset], a
 	ret
 
 ; spawn a box at the conveyor belt
 SpawnBox:
+	ld a, 48
+	ld [currentActiveBox_YPos], a
+	ld [currentActiveBox_XPos], a
+
+	; initialise the OAM
+	ld hl, _OAMRAM				; grab the address for the top of the OAM
+	ld a, [currentActiveBox_OAMOffset]
+	ld b, a
+	ld a, l
+	add b	; add the offset
+	ld l, a
+
+	ld a, [currentActiveBox_YPos]
+	ld [hli], a
+	ld a, [currentActiveBox_XPos]
+	ld [hli], a
+	ld a, [currentActiveBox_Tile]
+	ld [hli], a
+	ld a, %00000000
+	ld [hli], a
+
+	ret
+
+; disables the current box
+RemoveBox:
+	; initialise the OAM
+	ld hl, _OAMRAM				; grab the address for the top of the OAM
+	ld a, [currentActiveBox_OAMOffset]
+	ld b, a
+	ld a, l
+	add b	; add the offset
+	ld l, a
+
+	ld a, 0
+	ld [hli], a
+	ld [hli], a
+	ld [hli], a
+	ld [hli], a
 	ret
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -710,12 +758,6 @@ StartMenuEntry:							; main game loop
 	call Memcopy				; call the memcopy subroutine
 
 	call TileLoaderReset
-
-	ld de, BoxesSpriteData
-	ld bc, BoxesSpriteDataEnd - BoxesSpriteData
-	ld a, 1
-
-	call TileLoader
 	
 	; clear the OAM data in VRAM to ensure the screen isn't covered in garbage
 	; OAM is 40 sets of 4 bytes each, so clear 160 bytes to clear all of the OAM RAM
@@ -835,6 +877,8 @@ StartMenuEntry:							; main game loop
 .EndOfCGBPalette
 
 	call InitialisePlayer
+	call InitialiseBoxes
+	call SpawnBox
 
 	; Turn the LCD on
 	ld a, LCDCF_ON | LCDCF_BGON	| LCDCF_OBJON | LCDCF_BG8800 ; OR together the desired flags for LCD control
@@ -883,10 +927,26 @@ call UpdateKeys
 
 call UpdatePlayer
 
-.CheckStartPressed:
+.CheckBoxSpawn
 	ld a, [wCurKeys]
 	and a, PADF_A
-	jp nz, .StartPressed
+	jp nz, .BoxSpawn
+
+	ld a, [wCurKeys]
+	and a, PADF_B
+	jp nz, .BoxDespawn
+
+	jp .CheckStartPressed
+
+.BoxSpawn
+	call SpawnBox
+	jp .CheckStartPressed
+.BoxDespawn
+	call RemoveBox
+.CheckStartPressed:
+	;ld a, [wCurKeys]
+	;and a, PADF_A
+	;jp nz, .StartPressed
 	
 	ld a, [wCurKeys]
 	and a, PADF_B
