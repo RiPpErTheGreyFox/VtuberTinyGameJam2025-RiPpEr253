@@ -1,78 +1,13 @@
 INCLUDE "include/hardware.inc"			; include all the defines
+INCLUDE "include/cargoGameStructs.inc"	; out of file definitions
 
 ; graphical defines
 DEF PLAYER_TOP_OAM EQU _OAMRAM
-DEF PLAYER_BOT_OAM EQU _OAMRAM + 4
-DEF THROWER_TOP_OAM EQU _OAMRAM + 8
-DEF THROWER_BOT_OAM EQU _OAMRAM + 12
-DEF THROWN_ITEM_OAM EQU _OAMRAM + 16
 
-DEF ROUNDTENSDIGITTOPOAM EQU _OAMRAM + 20
-DEF ROUNDTENSDIGITBOTOAM EQU _OAMRAM + 24
-DEF ROUNDONESDIGITTOPOAM EQU _OAMRAM + 28
-DEF ROUNDONESDIGITBOTOAM EQU _OAMRAM + 32
-DEF SCORETENSDIGITTOPOAM EQU _OAMRAM + 36
-DEF SCORETENSDIGITBOTOAM EQU _OAMRAM + 40
-DEF SCOREONESDIGITTOPOAM EQU _OAMRAM + 44
-DEF SCOREONESDIGITBOTOAM EQU _OAMRAM + 48
-DEF PRESSSTARTOAM EQU _OAMRAM + 52
-
-DEF PLAYERTOPFRAME1 EQU 3
-DEF PLAYERBOTFRAME1 EQU 10
-DEF PLAYERTOPFRAME2 EQU 4
-DEF PLAYERBOTFRAME2 EQU 11
-DEF PLAYERTOPFRAME3 EQU 3
-DEF PLAYERBOTFRAME3 EQU 12
-
-DEF THROWERTOPFRAME1 EQU 2
-DEF THROWERBOTFRAME1 EQU 7
-DEF THROWERTOPFRAME2 EQU 2
-DEF THROWERBOTFRAME2 EQU 8
-DEF THROWERTOPFRAME3 EQU 2	
-DEF THROWERBOTFRAME3 EQU 9
-
-DEF ITEMSPRITE1 EQU 0
-DEF ITEMSPRITE2 EQU 1
-DEF ITEMSPRITE3 EQU 5
-DEF ITEMSPRITE4 EQU 6
-
-; These definitions assume they're sprites
-DEF ALPHABETZEROTOP EQU 128
-DEF ALPHABETZEROBOT EQU 138
-DEF ALPHABETONETOP EQU 129
-DEF ALPHABETONEBOT EQU 139
-DEF ALPHABETTWOTOP EQU 130
-DEF ALPHABETTWOBOT EQU 140
-DEF ALPHABETTHREETOP EQU 130
-DEF ALPHABETTHREEBOT EQU 141
-DEF ALPHABETFOURTOP EQU 131
-DEF ALPHABETFOURBOT EQU 142
-DEF ALPHABETFIVETOP EQU 132
-DEF ALPHABETFIVEBOT EQU 143
-DEF ALPHABETSIXTOP EQU 133
-DEF ALPHABETSIXBOT EQU 144
-DEF ALPHABETSEVENTOP EQU 134
-DEF ALPHABETSEVENBOT EQU 145
-DEF ALPHABETEIGHTTOP EQU 135
-DEF ALPHABETEIGHTBOT EQU 146
-DEF ALPHABETNINETOP EQU 136
-DEF ALPHABETNINEBOT EQU 147
-
-; Animation Constants
-DEF THROWER_ANIMATION_TIMER_DEFAULT EQU 7
-DEF PLAYER_ANIMATION_TIMER_DEFAULT EQU 6
 
 ; Gameplay Constants
-DEF THROWER_LEFT_WALL EQU 25
-DEF THROWER_RIGHT_WALL EQU 143
-DEF INITIAL_THROWER_SPEED EQU 1
-DEF MAXIMUM_THROWER_SPEED EQU 3
-DEF INITIAL_TIME_BETWEEN_THROWS EQU 60
-DEF MINIMUM_TIME_BETWEEN_THROWS EQU 05
 DEF DEFAULT_ITEMS_REMAINING EQU %00010000	; 10 in BCD
 DEF DEFAULT_TIME_BETWEEN_SPEEDUPS EQU 2
-DEF SECONDS_COUNTER EQU 1
-DEF ROUND_COUNTDOWN_START EQU 60
 ; gameplay definitions
 
 SECTION "Counter", WRAM0
@@ -84,26 +19,20 @@ wNewKeys: db
 
 SECTION "Item Data", WRAM0
 wItemMomentumX: db
-wItemMomentumY: db
 
 SECTION "Gameplay Data", WRAM0
-wCurrentScore: db
-wRemainingItems: db
-wRoundCounter: db
-wGameState: db
-wRoundCountdown: db
-wItemDropCurrentTimeBetweenThrows: db
-wItemDropCountdown: db
-wItemDropCounterFramesRemaining: db
-wTimeBetweenSpeedups: db
+wBoxInPlay: db							; treat as a bool
+wBoxTileIndex: db						; starting tile index for the box graphics
+	dstruct PLAYER, mainCharacter
+	dstruct BOX, currentActiveBox
 
 SECTION "Animation Data", WRAM0
 wPlayerCurrentFrame: db
-wPlayerFrameTimer: db
-wThrowerCurrentFrame: db
-wThrowerFrameTimer: db
-wThrowerDirection: db
-wThrowerSpeed: db
+
+SECTION "Managed Variables", WRAM0
+wTileBankZero: dw						; variables that hold the current count of tiles loaded by the manager
+wTileBankOne: dw
+wTileBankTwo: dw
 
 ; System definitions
 SECTION "System Type", WRAM0
@@ -133,6 +62,7 @@ SECTION "Header", ROM0[$100]
 ; @param de: Source
 ; @param hl: Destination
 ; @param bc: Length
+; @return hl: current memory address
 Memcopy:
 	ld a, [de]					; load one byte from [DE] into the A register
 	ld [hli], a					; place the byte from A into the address at HL and increment it
@@ -241,6 +171,124 @@ SystemDetection:
 	ld [wSGB], a
 
 .EndDetect
+	ret
+
+; Initialise Tile Loader
+; resets the tile pointers to defaults
+; @clobbers a, de
+TileLoaderReset:
+	ld a, $80
+	ld [wTileBankZero], a
+	ld a, $00
+	ld [wTileBankZero + 1], a
+	ld a, $88
+	ld [wTileBankOne], a
+	ld a, $00
+	ld [wTileBankOne + 1], a
+	ld a, $90	
+	ld [wTileBankTwo], a
+	ld a, $00
+	ld [wTileBankTwo + 1], a
+
+	ret
+
+; Sprite loader for managing tile locations
+; TODO: doesn't handle loading too many tiles (writes to out of bounds memory)
+; TODO: out of bounds memory checking and failing a load
+; TODO: handle tiles 128+ for bank 2
+; @param: de: address of the tiles to load
+; @param: bc: the length of tile data to load
+; @param: a: the desired location of the tiles 0 = object, 1 = both, 2 = background
+; @return: bc: index of the first tile loaded via this function
+TileLoader:
+	; de and bc are already set up before this subroutine for Memcopy to be called directly
+	; ld de, TitleScreenTiles				; load the address of the tiles into the DE register
+	; ld bc, TitleScreenTilesEnd - TitleScreenTiles		; load the length of Tiles into BC
+
+	; check a for which flag
+	; if 0, memory address $8000
+	cp a, 0
+	jp z, .bank0
+	; if 1, memory address $8800
+	cp a, 1
+	jp z, .bank1
+	; if 2, memory address $9000
+	cp a, 2
+	jp z, .bank2
+
+.bank0
+	ld a, [wTileBankZero]
+	ld h, a
+	ld a, [wTileBankZero + 1]
+	ld l, a
+	push hl
+	;ld hl, [wTileBankZero]
+	call Memcopy				; call the memcopy subroutine
+	ld a, h
+	ld [wTileBankZero], a
+	ld a, l
+	ld [wTileBankZero + 1], a
+	; get the beginning address (HL) - the base address, divide by 16 and that should give the tile indicies
+	pop hl
+	ld a, h
+	sub $80
+	ld b, a
+	ld a, l
+	sub $00
+	ld c, a
+	jp .DivideAndReturn
+
+.bank1
+	ld a, [wTileBankOne]
+	ld h, a
+	ld a, [wTileBankOne + 1]
+	ld l, a
+	push hl
+	call Memcopy				; call the memcopy subroutine
+	ld a, h
+	ld [wTileBankOne], a
+	ld a, l
+	ld [wTileBankOne + 1], a
+	; get the beginning address (HL) - the base address, divide by 16 and that should give the tile indicies
+	pop hl
+	ld a, h
+	sub $80
+	ld b, a
+	ld a, l
+	sub $00
+	ld c, a
+	jp .DivideAndReturn
+
+.bank2
+	ld a, [wTileBankTwo]
+	ld h, a
+	ld a, [wTileBankTwo + 1]
+	ld l, a
+	push hl
+	call Memcopy				; call the memcopy subroutine
+	ld a, h
+	ld [wTileBankTwo], a
+	ld a, l
+	ld [wTileBankTwo + 1], a
+	
+	; get the beginning address (HL) - the base address, divide by 16 and that should give the tile indicies
+	pop hl
+	ld a, h
+	sub $90
+	ld b, a
+	ld a, l
+	sub $00
+	ld c, a
+
+.DivideAndReturn
+	srl b
+  	rr c
+  	srl b
+  	rr c
+  	srl b
+  	rr c
+  	srl b
+  	rr c
 	ret
 
 ; Interrupt handler for LCD Stat interrupt
@@ -416,133 +464,6 @@ GetTileByPixel:
 	add hl, bc
 	ret
 
-; Update the scoreboard sprites with the current data
-UpdateScoreboard:
-	ld a, [wRoundCounter]	; load the score again
-	and $F0					; remove the ones digit by masking 4 bits 11110000
-	srl a					; shift right 4 times to move the 4 bit BCD into the
-	srl a					; lower nibble to be treated as another ones digit
-	srl a
-	srl a
-	ld b, a
-	ld hl, ROUNDTENSDIGITTOPOAM
-	call UpdateSingleDigitScoreboard
-	ld a, [wRoundCounter]	; load A with the BCD score
-	and $0F					; remove the tens digit by masking 4 bits 00001111
-	ld b, a					; save the value of a into b
-	ld hl, ROUNDONESDIGITTOPOAM
-	call UpdateSingleDigitScoreboard
-
-	
-	ld a, [wRemainingItems]	; load the score again
-	and $F0					; remove the ones digit by masking 4 bits 11110000
-	srl a					; shift right 4 times to move the 4 bit BCD into the
-	srl a					; lower nibble to be treated as another ones digit
-	srl a
-	srl a
-	ld b, a
-	ld hl, SCORETENSDIGITTOPOAM
-	call UpdateSingleDigitScoreboard
-	ld a, [wRemainingItems]	; load A with the BCD score
-	and $0F					; remove the tens digit by masking 4 bits 00001111
-	ld b, a					; save the value of a into b
-	ld hl, SCOREONESDIGITTOPOAM
-	call UpdateSingleDigitScoreboard
-
-	ret
-
-
-; Update a scoreboard sprite with the required tiles
-; expects the bottom OAM to be exactly 4 bytes after the top
-; @param b: number to set to
-; @param hl: OAM address of the top tile
-; @return D: Top Tile ID
-; @return E: Bottom Tile ID
-UpdateSingleDigitScoreboard:
-; use D as the top tile ID
-; use E as the bottom tile ID
-	
-	ld a, b						;place b value into a
-	cp a, 0
-	jp z, .SetNumberZero
-	cp a, 1
-	jp z, .SetNumberOne
-	cp a, 2
-	jp z, .SetNumberTwo
-	cp a, 3
-	jp z, .SetNumberThree
-	cp a, 4
-	jp z, .SetNumberFour
-	cp a, 5
-	jp z, .SetNumberFive
-	cp a, 6
-	jp z, .SetNumberSix
-	cp a, 7
-	jp z, .SetNumberSeven
-	cp a, 8
-	jp z, .SetNumberEight
-	cp a, 9
-	jp .SetNumberNine
-
-	
-.SetNumberZero:
-	ld d, ALPHABETZEROTOP
-	ld e, ALPHABETZEROBOT
-	jp .FinishNumbers
-.SetNumberOne:
-	ld d, ALPHABETONETOP
-	ld e, ALPHABETONEBOT
-	jp .FinishNumbers
-
-.SetNumberTwo:
-	ld d, ALPHABETTWOTOP
-	ld e, ALPHABETTWOBOT
-	jp .FinishNumbers
-
-.SetNumberThree:
-	ld d, ALPHABETTHREETOP
-	ld e, ALPHABETTHREEBOT
-	jp .FinishNumbers
-
-.SetNumberFour:
-	ld d, ALPHABETFOURTOP
-	ld e, ALPHABETFOURBOT
-	jp .FinishNumbers
-
-.SetNumberFive:
-	ld d, ALPHABETFIVETOP
-	ld e, ALPHABETFIVEBOT
-	jp .FinishNumbers
-
-.SetNumberSix:
-	ld d, ALPHABETSIXTOP
-	ld e, ALPHABETSIXBOT
-	jp .FinishNumbers
-
-.SetNumberSeven:
-	ld d, ALPHABETSEVENTOP
-	ld e, ALPHABETSEVENBOT
-	jp .FinishNumbers
-
-.SetNumberEight:
-	ld d, ALPHABETEIGHTTOP
-	ld e, ALPHABETEIGHTBOT
-	jp .FinishNumbers
-
-.SetNumberNine:
-	ld d, ALPHABETNINETOP
-	ld e, ALPHABETNINEBOT
-.FinishNumbers:
-
-	inc hl
-	inc hl
-	ld [hl], d
-	inc hl
-	inc hl
-	inc hl
-	inc hl
-	ld [hl], e
-	ret
 
 ; Updates the controller variables
 UpdateKeys:
@@ -586,6 +507,169 @@ EntryPoint:
 	call EnableSound
 	jp StartMenuEntry			; Jump to the main menu
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;	GAME SPECIFIC SUBROUTINE
+;;	BLOCK
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+InitialisePlayer:
+	; initialise player variables and load/define the tiles needed
+	ld a, 40
+	ld [mainCharacter_XPos], a
+	ld a, 40
+	ld [mainCharacter_YPos], a
+	ld a, 0
+	ld [mainCharacter_Direction], a
+	ld [mainCharacter_OAMOffset], a
+
+	ld de, PlayerSpriteData
+	ld bc, PlayerSpriteDataEnd - PlayerSpriteData
+	ld a, 0
+
+	call TileLoader
+
+	; for now, main character tiles are upper is $+2 and lower is $+7
+	ld a, c
+	ld [mainCharacter_TileTL],a
+	inc a
+	ld [mainCharacter_TileTR], a
+	inc a
+	ld [mainCharacter_TileBL],a
+	inc a
+	ld [mainCharacter_TileBR], a
+
+	; assign and update the OAM's
+	ld a, [mainCharacter_YPos]
+	ld [PLAYER_TOP_OAM], a
+	ld a, [mainCharacter_XPos]
+	ld [PLAYER_TOP_OAM + 1], a
+	ld a, [mainCharacter_TileTL]
+	ld [PLAYER_TOP_OAM + 2], a
+	ld a, %00000000
+	ld [PLAYER_TOP_OAM + 3], a
+	
+	ld a, [mainCharacter_YPos]
+	ld [PLAYER_TOP_OAM+4], a
+	ld a, [mainCharacter_XPos]
+	add 8
+	ld [PLAYER_TOP_OAM+4 + 1], a
+	ld a, [mainCharacter_TileTR]
+	ld [PLAYER_TOP_OAM+4 + 2], a
+	ld a, %00000000
+	ld [PLAYER_TOP_OAM+4 + 3], a
+	
+	ld a, [mainCharacter_YPos]
+	add 8
+	ld [PLAYER_TOP_OAM+8], a
+	ld a, [mainCharacter_XPos]
+	ld [PLAYER_TOP_OAM+8 + 1], a
+	ld a, [mainCharacter_TileBL]
+	ld [PLAYER_TOP_OAM+8 + 2], a
+	ld a, %00000000
+	ld [PLAYER_TOP_OAM+8 + 3], a
+	
+	ld a, [mainCharacter_YPos]
+	add 8
+	ld [PLAYER_TOP_OAM+12], a
+	ld a, [mainCharacter_XPos]
+	add 8
+	ld [PLAYER_TOP_OAM+12 + 1], a
+	ld a, [mainCharacter_TileBR]
+	ld [PLAYER_TOP_OAM+12 + 2], a
+	ld a, %00000000
+	ld [PLAYER_TOP_OAM+12 + 3], a
+
+	ret
+
+; UpdatePlayer runs through the per frame updates required
+; usually input and collision checking
+UpdatePlayer:
+	ld a, [wCurKeys]
+	and a, PADF_UP
+	jp nz, .UpPressed
+
+	ld a, [wCurKeys]
+	and a, PADF_DOWN
+	jp nz, .DownPressed
+	
+	ld a, [wCurKeys]
+	and a, PADF_LEFT
+	jp nz, .LeftPressed
+	
+	ld a, [wCurKeys]
+	and a, PADF_RIGHT
+	jp nz, .RightPressed
+
+	jp .KeyCheckFinished
+
+.UpPressed
+	ld a, [mainCharacter_YPos]
+	dec a
+	ld [mainCharacter_YPos], a
+	jp .KeyCheckFinished
+.DownPressed
+	ld a, [mainCharacter_YPos]
+	inc a
+	ld [mainCharacter_YPos], a
+	jp .KeyCheckFinished
+.LeftPressed
+	ld a, [mainCharacter_XPos]
+	dec a
+	ld [mainCharacter_XPos], a
+	jp .KeyCheckFinished
+.RightPressed
+	ld a, [mainCharacter_XPos]
+	inc a
+	ld [mainCharacter_XPos], a
+.KeyCheckFinished
+
+.UpdateOAM
+	ld a, [mainCharacter_YPos]
+	ld [PLAYER_TOP_OAM], a
+	ld a, [mainCharacter_XPos]
+	ld [PLAYER_TOP_OAM + 1], a
+	
+	ld a, [mainCharacter_YPos]
+	ld [PLAYER_TOP_OAM+4], a
+	ld a, [mainCharacter_XPos]
+	add 8
+	ld [PLAYER_TOP_OAM+4 + 1], a
+	
+	ld a, [mainCharacter_YPos]
+	add 8
+	ld [PLAYER_TOP_OAM+8], a
+	ld a, [mainCharacter_XPos]
+	ld [PLAYER_TOP_OAM+8 + 1], a
+	
+	ld a, [mainCharacter_YPos]
+	add 8
+	ld [PLAYER_TOP_OAM+12], a
+	ld a, [mainCharacter_XPos]
+	add 8
+	ld [PLAYER_TOP_OAM+12 + 1], a
+.UpdateOAMFinished
+
+	; screen scroll tests
+	;ld a, [mainCharacter_YPos]
+	;ld [rSCY], a
+	;ld a, [mainCharacter_XPos]
+	;ld [rSCX], a
+	ret
+
+; call to load the tiles and initialise variables
+InitialiseBoxes:
+	ld a, 0
+	ld [currentActiveBox_YPos], a
+	ld [currentActiveBox_XPos], a
+	ld [currentActiveBox_Tile], a
+	ld [currentActiveBox_OAMOffset], a
+	ret
+
+; spawn a box at the conveyor belt
+SpawnBox:
+	ret
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;	START MENU
 ;;	BLOCK
@@ -612,24 +696,26 @@ StartMenuEntry:							; main game loop
 	ld [rLCDC], a
 
 	; Copy tile data into VRAM
-	ld de, TitleScreenTiles				; load the address of the tiles into the DE register
+	ld de, LevelOneTiles				; load the address of the tiles into the DE register
 	ld hl, $9000				; load the beginning VRAM address into HL (HL is easy to inc/dec)
-	ld bc, TitleScreenTilesEnd - TitleScreenTiles		; load the length of Tiles into BC
+	ld bc, LevelOneTilesEnd - LevelOneTiles		; load the length of Tiles into BC
 	call Memcopy				; call the memcopy subroutine
 
 	; The above tile loading will clobber the tilemap in VRAM, but for now just load the other half of tiles
-	
-	; Copy tile data into VRAM
-	;ld de, (TitleScreenTiles + $0800)				; load the address of the tiles into the DE register
-	;ld hl, $8800				; load the beginning VRAM address into HL (HL is easy to inc/dec)
-	;ld bc, TitleScreenTilesEnd - (TitleScreenTiles + $0800)		; load the length of Tiles into BC
-	;call Memcopy				; call the memcopy subroutine
 
 	; Copy tilemap data into VRAM (functionally identical to above but pointing to tilemap data and addresses)
-	ld de, TitleScreenTilemap
+	ld de, LevelOneTilemap
 	ld hl, $9800
-	ld bc, TitleScreenTilemapEnd - TitleScreenTilemap
+	ld bc, LevelOneTilemapEnd - LevelOneTilemap
 	call Memcopy				; call the memcopy subroutine
+
+	call TileLoaderReset
+
+	ld de, BoxesSpriteData
+	ld bc, BoxesSpriteDataEnd - BoxesSpriteData
+	ld a, 1
+
+	call TileLoader
 	
 	; clear the OAM data in VRAM to ensure the screen isn't covered in garbage
 	; OAM is 40 sets of 4 bytes each, so clear 160 bytes to clear all of the OAM RAM
@@ -748,7 +834,8 @@ StartMenuEntry:							; main game loop
 
 .EndOfCGBPalette
 
-	
+	call InitialisePlayer
+
 	; Turn the LCD on
 	ld a, LCDCF_ON | LCDCF_BGON	| LCDCF_OBJON | LCDCF_BG8800 ; OR together the desired flags for LCD control
 	ld [rLCDC], a				; then push them to the LCD controller
@@ -794,21 +881,23 @@ StartMenuMain:
 
 call UpdateKeys
 
-.CheckAPressed:
+call UpdatePlayer
+
+.CheckStartPressed:
 	ld a, [wCurKeys]
 	and a, PADF_A
-	jp nz, .APressed
+	jp nz, .StartPressed
 	
 	ld a, [wCurKeys]
 	and a, PADF_B
-	jp nz, .APressed
+	jp nz, .StartPressed
 	
 	ld a, [wCurKeys]
 	and a, PADF_START
-	jp nz, .APressed
-	
+	jp nz, .StartPressed
+
 	jp StartMenuMain
-.APressed:
+.StartPressed:
 	; Cycle sound to clear all playing sounds
 	call DisableSound
 	call EnableSound
@@ -830,18 +919,20 @@ SECTION "Graphics Data", ROMX
 AlphabetTiles: INCBIN "gfx/Alphabet.2bpp"
 AlphabetTilesEnd:
 
-SpriteData: INCBIN "gfx/spritesheettest.2bpp"
-	
-SpriteDataEnd:
+PlayerSpriteData: INCBIN "gfx/player.2bpp"
+PlayerSpriteDataEnd:
+
+BoxesSpriteData: INCBIN "gfx/boxes.2bpp"
+BoxesSpriteDataEnd:
 
 	; TODO: Come up with a way to load all 240 tiles at once
 	; Seems like the tile map generator expects to play the title screen
 	; at memory location $8000, so make sure to flip LCDC bit 4
 
-TitleScreenTiles: INCBIN "gfx/backgrounds/TitleScreenMockup.2bpp"
-TitleScreenTilesEnd:
-TitleScreenTilemap:  INCBIN "gfx/backgrounds/TitleScreenMockup.tilemap"
-TitleScreenTilemapEnd:
+LevelOneTiles: INCBIN "gfx/backgrounds/Level1Background.2bpp"
+LevelOneTilesEnd:
+LevelOneTilemap:  INCBIN "gfx/backgrounds/Level1Background.tilemap"
+LevelOneTilemapEnd:
 
 SECTION "Sound Data", ROMX
 

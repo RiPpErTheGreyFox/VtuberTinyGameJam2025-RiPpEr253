@@ -1,0 +1,92 @@
+VTuber Tiny Game Jam 2025
+
+Platform:
+Gameboy/Color Gameboy
+
+Optional Theme: 
+Space
+
+Engine/Software used:
+Custom GBZ80 engine, using RGBDS assembler
+Aseprite - Art
+NEXXT - Art
+hUGETracker - Music
+
+Schedule:
+9 days total
+Day 1: Concept/basic design (Saturday)
+Days 2-3: MVP: Getting basic mechanics implemented and ROM up and running in the HTML5 emulator (Sunday, Monday)
+Days 4-7: Iterating: adding more stuff from the feature list as needed, working on the mechanics, tweaking anything needed  (Tuesday, Wednesday, Thursday, Friday)
+Day 8: Final Polish (Saturday)
+Day 9: Submission Day (Sunday)
+
+Basic Concept:
+A spatial puzzle game that has players arranging boxes in a cargo bay from a top down 2D perspective
+
+Elevator Pitch:
+You are a worker at a space cargo dock, taking cargo from a belt from the station and loading ships that are about to depart,
+you will have to ensure all cargo fits, without breaking any of the packing rules regarding hazardous materials
+
+Art Style:
+Cutesy/Chibi pixel art, very bright colours, lots of symbology where it'll fit to account for no color in the target 4 shades of grey version
+
+Overview of features required:
+A title screen
+Controls help screen
+Player Character
+Picking up and dropping boxes on the floor
+Scrolling screen
+Cargo bay area with lines on the ground showing restrictions
+Cargo boxes that have different properties that are visible
+"Scoring" system to check if cargo placement is valid
+Three different levels
+
+Gameplay loop example:
+Conveyor belt on the left holds a cargo box
+Player moves over to the belt, picks up the box
+Player now holding the box moves away and the next box appears on the belt
+Player moves to the right into the outlined cargo area, and places a box, making sure that boxes that are incompatible aren't placed next to each other
+Once all the boxes are taken off of the belt assuming all are placed in valid locations, then a victory screen is shown and allows the player to continue to a different level
+If there are invalid box placements, flash them with an error logo to show the player which boxes need to move
+
+Immediate To-do:
+*Set up github
+*A Sprite handler
+	*^a function that takes in references to binary files, loads them to tiles, and returns a number for the tile index and length
+		*^needs to keep global track of where the tiles are being loaded
+Create metasprites/animations and handler for them
+Scrollable screen proof of concept
+Programmer Art for player, three box types, background
+Create a top-down player controller
+	^needs functions for collision detection, updates, does it's own key checking
+Proof of concept for picking up and dropping boxes (converting from background tile to sprite back to background)
+	^needs a function for converting an object to a background tile
+*Going to need to load box tiles into middle of VRAM
+	*^make the sprite loading function take a flag for if it needs to be object, background or both
+
+Needed for MVP:
+*Write Checklist
+*Player character that is movable from top-down perspective
+^ need to answer the question, freeform movement or grid movement
+	^almost certainly grid based movement (see pokemon)
+	^ work out grid based movement (have an accepting input state, when accepting input set a destination for the next grid position)
+Collision based on background tiles
+*scrollable level 1
+*^ proven it can be done, will make level 2/3 scrollable
+boxes that are placable
+a "scoring" area for the boxes
+a conveyor belt that distributes the boxes in a random order (always set boxes for a level, just different order)
+two different types of hazardous box (explosive and radioactive)
+*placeholder graphics for the two boxes, conveyor belt, level and player 
+
+Features that are polish:
+Refined graphics for the two boxes, conveyor belt, player and level
+CGB support, SGB support
+Dialogue with characters
+Tiny story that continues
+Intro cutscene
+Inbetween level cutscenes
+Level select
+More puzzles/levels
+CGB exclusive level?
+GBA Easter Egg
