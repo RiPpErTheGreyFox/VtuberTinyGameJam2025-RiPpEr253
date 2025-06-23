@@ -7,11 +7,12 @@ DEF PLAYER_TOP_OAM EQU _OAMRAM
 
 ; Gameplay Constants
 DEF DEFAULT_ITEMS_REMAINING EQU %00010000	; 10 in BCD
-DEF DEFAULT_TIME_BETWEEN_SPEEDUPS EQU 2
+DEF DEFAULT_DEBOUNCE_FRAMES EQU 30
 ; gameplay definitions
 
 SECTION "Counter", WRAM0
 wFrameCounter: db
+wButtonDebounce: db
 
 SECTION "Input Variables", WRAM0		; set labels in Work RAM for easy variable use
 wCurKeys: db							; label: declare byte, reserves a byte for use later
@@ -22,6 +23,7 @@ wItemMomentumX: db
 
 SECTION "Gameplay Data", WRAM0
 wBoxInPlay: db							; treat as a bool
+wBoxBeingHeld: db						; bool
 wBoxTileIndex: db						; starting tile index for the box graphics
 	dstruct PLAYER, mainCharacter
 	dstruct BOX, currentActiveBox
@@ -430,16 +432,47 @@ PlaySoundHL:
 ;;	BLOCK
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+; Button debounce routines
+
+; Sets the button debounce timer to the default defined
+; @clobbers: a
+SetButtonDebounce:
+	ld a, DEFAULT_DEBOUNCE_FRAMES
+	ld [wButtonDebounce], a
+	ret
+; Returns a = 1 if the debounce isn't cleared
+; @return a: 1 if debounce still happening, otherwise 0
+CheckButtonDebounce:
+	ld a, [wButtonDebounce]				; grab the current debounce timer
+	cp a, 0								; check if it's not zero
+	jp nz, .AboveZero					; if it is, zero bit is not set, so jump
+	ld a, 0								; return 0 as debounce isn't cleared
+	ret
+.AboveZero
+	ld a, 1								; return 1 as debounce is cleared
+	ret
+; processes a single frame of debounce
+; @clobbers a
+UpdateButtonDebounce:
+	ld a, [wButtonDebounce]				; grab the current debounce timer
+	cp a, 0								; if it's at zero, then just ignore it
+	jp z, .DebounceCleared
+
+	dec a								; decrement and save
+	ld [wButtonDebounce], a
+
+.DebounceCleared
+	ret
 
 ; Convert a pixel position to a tilemap address
 ; hl = $9800 + X + Y * 32
 ; @param b: X
 ; @param c: Y
 ; @return hl: tile address
-GetTileByPixel:
+GetTileAddressByPixel:
 	; First, we need to divide by 8 to convert a pixel position to a tile position.
 	; After this we want to multiply the Y position by 32.
-	; These operations effectively cancelt out so we only need to mask the Y value.
+	; These operations effectively cancel out so we only need to mask the Y value.
 	ld a, c
 	and a, %11111000
 	ld l, a
@@ -463,6 +496,47 @@ GetTileByPixel:
 	add hl, bc
 	ret
 
+; Convert a pixel position to a tilemap index
+; @param b: X
+; @param c: Y
+; @return b, c: tile X, tile Y
+; @clobbers a
+GetTileIndexByPixel:
+	; just get the pixel location in both axis and divide it by 8
+	ld a, c			; get the Y position
+	srl a ; a / 2 
+	srl a ; a / 4
+	srl a ; a / 8
+	ld c, a
+	ld a, b			; get the X position
+	srl a ;a / 2
+	srl a ;a / 4
+	srl a ;a / 8
+	ld b, a
+
+	ret
+
+; Take a TileMap address, and convert it to the correct address for the "same" tile but in the ROM
+; used to get the original tilemap in case it was changed
+; @param c: LevelNumber
+; @param hl: address to be converted
+; @return hl: converted address
+; @clobbers b
+ConvertVRAMTileMapToROMTileMap:
+	; remove the offset to the original TileMap
+	ld a, h
+	sub $98								; turns the base address from $9800+ to $0000+
+	ld h, a
+
+	;check which level number it is and adjust the offset accordingly
+	ld a, c
+	cp a, 1
+	jp z, .TileMapOne
+	; TODO: if we have more than one level, add more conditionals
+.TileMapOne
+	ld bc, LevelOneTilemap
+	add hl, bc
+	ret
 
 ; Updates the controller variables
 UpdateKeys:
@@ -514,9 +588,9 @@ EntryPoint:
 
 InitialisePlayer:
 	; initialise player variables and load/define the tiles needed
-	ld a, 40
+	ld a, 32
 	ld [mainCharacter_XPos], a
-	ld a, 40
+	ld a, 32
 	ld [mainCharacter_YPos], a
 	ld a, 0
 	ld [mainCharacter_Direction], a
@@ -586,66 +660,81 @@ InitialisePlayer:
 UpdatePlayer:
 	ld a, [wCurKeys]
 	and a, PADF_UP
-	jp nz, .UpPressed
+	jp z, .CheckDownPressed
 
+	ld a, [mainCharacter_YPos]
+	sub 1
+	ld [mainCharacter_YPos], a
+
+.CheckDownPressed
 	ld a, [wCurKeys]
 	and a, PADF_DOWN
-	jp nz, .DownPressed
-	
+	jp z, .CheckLeftPressed
+
+	ld a, [mainCharacter_YPos]
+	add 1
+	ld [mainCharacter_YPos], a
+
+.CheckLeftPressed
 	ld a, [wCurKeys]
 	and a, PADF_LEFT
-	jp nz, .LeftPressed
-	
+	jp z, .CheckRightPressed
+
+	ld a, [mainCharacter_XPos]
+	sub 1
+	ld [mainCharacter_XPos], a
+
+.CheckRightPressed
 	ld a, [wCurKeys]
 	and a, PADF_RIGHT
-	jp nz, .RightPressed
+	jp z, .KeyCheckFinished
 
-	jp .KeyCheckFinished
+	ld a, [mainCharacter_XPos]
+	add 1
+	ld [mainCharacter_XPos], a
 
-.UpPressed
-	ld a, [mainCharacter_YPos]
-	dec a
-	ld [mainCharacter_YPos], a
-	jp .KeyCheckFinished
-.DownPressed
-	ld a, [mainCharacter_YPos]
-	inc a
-	ld [mainCharacter_YPos], a
-	jp .KeyCheckFinished
-.LeftPressed
-	ld a, [mainCharacter_XPos]
-	dec a
-	ld [mainCharacter_XPos], a
-	jp .KeyCheckFinished
-.RightPressed
-	ld a, [mainCharacter_XPos]
-	inc a
-	ld [mainCharacter_XPos], a
 .KeyCheckFinished
+
+; 	snap to a grid tests
+;	ld a, [mainCharacter_XPos]
+;	and %11111000
+;	ld [mainCharacter_XPos], a
+
+;	ld a, [mainCharacter_YPos]
+;	and %11111000
+;	ld [mainCharacter_YPos], a
 
 .UpdateOAM
 	ld a, [mainCharacter_YPos]
+	add 16							; make sure to set the sprite offsets
 	ld [PLAYER_TOP_OAM], a
 	ld a, [mainCharacter_XPos]
+	add 8							; make sure to set the sprite offsets
 	ld [PLAYER_TOP_OAM + 1], a
 	
 	ld a, [mainCharacter_YPos]
+	add 16							; then add the metasprite offset							; make sure to set the sprite offsets
 	ld [PLAYER_TOP_OAM+4], a
 	ld a, [mainCharacter_XPos]
-	add 8
+	add 8							; make sure to set the sprite offsets
+	add 8							; then add the metasprite offset
 	ld [PLAYER_TOP_OAM+4 + 1], a
 	
 	ld a, [mainCharacter_YPos]
-	add 8
+	add 16							; make sure to set the sprite offsets
+	add 8							; then add the metasprite offset
 	ld [PLAYER_TOP_OAM+8], a
 	ld a, [mainCharacter_XPos]
+	add 8							; make sure to set the sprite offsets
 	ld [PLAYER_TOP_OAM+8 + 1], a
 	
 	ld a, [mainCharacter_YPos]
-	add 8
+	add 16							; make sure to set the sprite offsets
+	add 8							; then add the metasprite offset
 	ld [PLAYER_TOP_OAM+12], a
 	ld a, [mainCharacter_XPos]
-	add 8
+	add 8							; make sure to set the sprite offsets
+	add 8							; then add the metasprite offset
 	ld [PLAYER_TOP_OAM+12 + 1], a
 .UpdateOAMFinished
 
@@ -660,6 +749,7 @@ UpdatePlayer:
 InitialiseBoxes:
 	ld a, 0
 	ld [wBoxInPlay], a
+	ld [wBoxBeingHeld], a
 	ld [currentActiveBox_YPos], a
 	ld [currentActiveBox_XPos], a
 	ld a, 16
@@ -667,19 +757,49 @@ InitialiseBoxes:
 
 	ld de, BoxesSpriteData
 	ld bc, BoxesSpriteDataEnd - BoxesSpriteData
-	ld a, 1											; make sure that the boxes tiles are loaded in the middle bank
-
+	ld a, 1
 	call TileLoader
 
 	ld a, c
 	ld [currentActiveBox_Tile], a
 	ret
 
-; spawn a box at the conveyor belt
-SpawnBox:
+; Spawns a box at the conveyor dropoff point
+; @clobbers a, bc, d, hl
+SpawnBoxAtConveyor:
+
+	call RandomNumberFour			; get a number between 0-2, this gives 0-3
+	cp a, 3							; if we get a 3
+	jp nz, .OffsetCalc				; just decrement it
+	dec a
+.OffsetCalc
+	add 128
+	ld d, a
+
+	ld b, 16
+	ld c, 64
+
+	call GetTileAddressByPixel
+
+	ld a, d
+	ld [hl], a
+
+	ret
+
+; spawn an object version of a box
+; @params b: type of box to spawn
+; @clobbers a, hl
+SpawnBoxObject:
+	ld a, b
+	ld [currentActiveBox_Tile], a
 	ld a, 48
 	ld [currentActiveBox_YPos], a
 	ld [currentActiveBox_XPos], a
+
+	ld a, 1
+	ld [wBoxInPlay], a
+	ld a, 0
+	ld [wBoxBeingHeld], a
 
 	; initialise the OAM
 	ld hl, _OAMRAM				; grab the address for the top of the OAM
@@ -701,7 +821,7 @@ SpawnBox:
 	ret
 
 ; disables the current box
-RemoveBox:
+DisableBox:
 	; initialise the OAM
 	ld hl, _OAMRAM				; grab the address for the top of the OAM
 	ld a, [currentActiveBox_OAMOffset]
@@ -715,6 +835,110 @@ RemoveBox:
 	ld [hli], a
 	ld [hli], a
 	ld [hli], a
+
+	ld [wBoxInPlay], a
+	ld [wBoxBeingHeld], a
+	ret
+
+; Places a box held by the player into the background
+; @clobbers a, bc, hl
+PlaceBox:
+	; get player XPos and YPos
+	; calculate an offset from the top left to the intended position (adjust this with direction later)
+	ld a, [mainCharacter_XPos]		; grab the X position of the player
+	add 16							; offset from the top left
+	ld b, a							; stick it in B ready for any function calls
+	ld a, [mainCharacter_YPos]		; do the same for Y
+	add 8
+	ld c, a
+	; call get tile by pixel to get the tile offset
+	call GetTileAddressByPixel
+	; check if the tile index is above 128, if so then 
+	; check if there's a box in hand, if not, then pick up the box instead
+	ld a, [hl]						; get the tile type at that address
+	cp a, 127						; compare to 127, if > 127, carry bit will be set
+	jp nc, .PickUpBox				; if carry bit not set, jump to pick up box
+.PutDownBox
+	; check if we're holding a box, if we're not, then don't put anything down
+	ld a, [wBoxBeingHeld]
+	cp a, 0
+	; TODO: play a sound
+	jp z, .EndOfFunc
+	; replace the tile index with the box tile to place down the box
+	ld a, [currentActiveBox_Tile]	; TODO: This is hardcoded to a specific tile index, undo this later
+	ld [hl], a
+	; call disable box to remove the object box
+	call DisableBox
+	ld a, 0
+	ld [wBoxBeingHeld], a			; box is no longer in hands
+	jp .EndOfFunc
+	; otherwise if there is a box already there
+.PickUpBox
+	; check if box is in hand, if not then pick it up, otherwise play an error
+	ld a, [wBoxBeingHeld]
+	cp a, 0
+	; TODO: play a sound
+	jp nz, .EndOfFunc
+
+	; find the original tile in the ROM and replace that tile
+	ld a, [hl]
+	ld b, a
+	push bc
+	push hl							; save the VRAM tilemap address
+	call ConvertVRAMTileMapToROMTileMap	; grab the original tilemap from ROM
+	ld a, [hl]						; get the original tile underneath
+	pop hl							; grab the VRAM tilemap address again
+	ld [hl], a
+
+	; spawn the box and put in the players hand
+	pop bc
+	call SpawnBoxObject
+	ld a, 1
+	ld [wBoxBeingHeld], a
+	ld [wBoxInPlay], a
+	call UpdateBox					; immediately update it to not have the one frame delay
+
+.EndOfFunc
+	ret
+
+; Updates the currently active box (assuming there is one)
+; @clobbers a, hl
+UpdateBox:
+	; grab the status of the box (is there one active?)
+	ld a, [wBoxInPlay]				; check if wBoxInPlay == true
+	cp a, 1
+	jp nz, .NoBox					; if == false then just skip function
+	; check the player direction and select an offset
+	; TODO: actually implement direction
+	; update in the in RAM positions
+	ld a, [wBoxBeingHeld]				; check if wBoxBeingHeld == true
+	cp a, 1
+	jp nz, .BoxNotBeingHeld			; if == false then just skip to pickup checking
+
+	ld a, [mainCharacter_XPos]
+	add 16
+	ld [currentActiveBox_XPos], a
+	ld a, [mainCharacter_YPos]
+	add 24
+	ld [currentActiveBox_YPos], a
+
+	; Update the OAM, first calculate the offset needed
+	ld hl, _OAMRAM				; grab the address for the top of the OAM
+	ld a, [currentActiveBox_OAMOffset]
+	ld b, a
+	ld a, l
+	add b	; add the offset
+	ld l, a
+
+	ld a, [currentActiveBox_YPos]
+	ld [hli], a
+	ld a, [currentActiveBox_XPos]
+	ld [hli], a
+
+.BoxNotBeingHeld
+	; check to see if player is within 8 pixels in both axis
+	; TODO: Implement
+.NoBox
 	ret
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -875,9 +1099,14 @@ StartMenuEntry:							; main game loop
 
 .EndOfCGBPalette
 
+	; Initialise variables
+
 	call InitialisePlayer
 	call InitialiseBoxes
-	call SpawnBox
+	call SpawnBoxAtConveyor
+
+	ld a, 0
+	ld [wButtonDebounce], a
 
 	; Turn the LCD on
 	ld a, LCDCF_ON | LCDCF_BGON	| LCDCF_OBJON | LCDCF_BG8800 ; OR together the desired flags for LCD control
@@ -922,9 +1151,12 @@ StartMenuMain:
 	; tick the music driver for the frame
 	; call hUGE_dosound
 
+call UpdateButtonDebounce
 call UpdateKeys
 
 call UpdatePlayer
+
+call UpdateBox
 
 .CheckBoxSpawn
 	ld a, [wCurKeys]
@@ -938,10 +1170,16 @@ call UpdatePlayer
 	jp .CheckStartPressed
 
 .BoxSpawn
-	call SpawnBox
+	; check if Debounce done
+	call CheckButtonDebounce				; check the button debounce status
+	cp a, 1									; if a == 1, zero flag will set
+	jp z, .CheckStartPressed				; skip the button
+	call SetButtonDebounce					; otherwise debounce is clear and we can press the button
+	call PlaceBox							; make sure to set debounce ourselves
 	jp .CheckStartPressed
 .BoxDespawn
-	call RemoveBox
+	call SpawnBoxAtConveyor					; DEBUG TODO: remove this
+	;call DisableBox
 .CheckStartPressed:
 	;ld a, [wCurKeys]
 	;and a, PADF_A
@@ -961,7 +1199,7 @@ call UpdatePlayer
 	call DisableSound
 	call EnableSound
 	ld b, 31					; wait a half second to insure against
-	call WaitFrames				; double pressing
+	;call WaitFrames				; double pressing
 	;jp MainGameStart
 
 jp StartMenuMain

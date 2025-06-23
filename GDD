@@ -55,12 +55,13 @@ Immediate To-do:
 	*^a function that takes in references to binary files, loads them to tiles, and returns a number for the tile index and length
 		*^needs to keep global track of where the tiles are being loaded
 Create metasprites/animations and handler for them
-Scrollable screen proof of concept
-Programmer Art for player, three box types, background
-Create a top-down player controller
-	^needs functions for collision detection, updates, does it's own key checking
-Proof of concept for picking up and dropping boxes (converting from background tile to sprite back to background)
-	^needs a function for converting an object to a background tile
+-- Will do during iteration
+*Scrollable screen proof of concept
+*Programmer Art for player, three box types, background
+*Create a top-down player controller
+	^needs functions for collision detection, *updates, *does it's own key checking
+*Proof of concept for picking up and dropping boxes (converting from background tile to sprite back to background)
+*	^needs a function for converting an object to a background tile
 *Going to need to load box tiles into middle of VRAM
 	*^make the sprite loading function take a flag for if it needs to be object, background or both
 
@@ -73,11 +74,25 @@ Needed for MVP:
 Collision based on background tiles
 *scrollable level 1
 *^ proven it can be done, will make level 2/3 scrollable
-boxes that are placable
+*boxes that are placable
 a "scoring" area for the boxes
 a conveyor belt that distributes the boxes in a random order (always set boxes for a level, just different order)
 two different types of hazardous box (explosive and radioactive)
 *placeholder graphics for the two boxes, conveyor belt, level and player 
+
+Monday Notes:
+Place box in background tile
+Determine which tile is “in front” by using a get tile by pixel to find the tile offset, check if the tile “in front”
+(for now just directly to the right of the main character) is valid (empty space tiles, define these?) and just simply
+replace it with a box tile, if it’s a box tile then spawn a box in the players hands, and read from the original tile to
+replace it with the one that was supposed to be there (doing it tilemap style like this will make sure it’s 8 pixel aligned, even with a scrolled screen)
+
+Start tracking direction on the player, flip them on X/Y to show direction for now (will use animation system in the end to pick a direction)
+
+Keep an entire copy of tile map (Shadow Tilemap) in WRAM (high half, D800 to DBFF? Only needs a one bit change to offset it)
+use that as a buffer for “previous” tiles (copy 9800 to 9BFF) (might not need this at all, just use the VRAM tilemap and the
+ROM tilemap?) can calculate offsets the way we did with the tile loader (use 16-bit add/subtracts, can byte align the tilemap
+on the cart to make it easier
 
 Features that are polish:
 Refined graphics for the two boxes, conveyor belt, player and level
