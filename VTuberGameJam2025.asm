@@ -596,12 +596,16 @@ InitialisePlayer:
 	; initialise player variables and load/define the tiles needed
 	ld a, 32
 	ld [mainCharacter_XPos], a
+	ld [mainCharacter_XDestination], a
 	ld a, 32
 	ld [mainCharacter_YPos], a
+	ld [mainCharacter_YDestination], a
 	ld a, 0
 	ld [mainCharacter_Direction], a
 	ld a, 128
 	ld [mainCharacter_OAMOffset], a
+	ld a, 1
+	ld [mainCharacter_AllowMove], a
 
 	ld de, PlayerSpriteData
 	ld bc, PlayerSpriteDataEnd - PlayerSpriteData
@@ -669,46 +673,185 @@ InitialisePlayer:
 
 	ret
 
+; When passed in an XY, determine if tile is passable or not
+; @param b: X
+; @param c: Y
+; @return a: 1 if impassable otherwise 0
+CheckCollisionAtXY:
+	; bc is already in the registers ready to call
+	call GetTileAddressByPixel
+	
+	ld a, [hl]						; get the tile type at that address
+	cp a, 127						; compare to 127, if > 127, carry bit will be not set
+	jp nc, .Impassable				; if carry bit not set, there's already a box there, jump out
+
+	; redefine impassable tiles when doing the next art pass
+	; tiles 1, 2 and 3 in the background bank are impassable
+	;cp a, 1
+	;jp z, .Impassable
+
+	;cp a, 2
+	;jp z, .Impassable
+	
+	;cp a, 3
+	;jp z, .Impassable
+.Passable
+	ld a, 0
+	ret
+
+.Impassable
+	ld a, 1
+	ret
+
 ; UpdatePlayer runs through the per frame updates required
 ; usually input and collision checking
 UpdatePlayer:
+.UpdateMovementToDestination
+.CheckYDestinationPositionDifference
+	; clear the allow move flag register
+	ld de, 0
+	; if the destination != the current position, process updates to move the player towards it
+	ld a, [mainCharacter_YPos]
+	ld b, a
+	ld a, [mainCharacter_YDestination]
+	cp a,b
+	; do the move closer math here
+	jp z, .YIsTheSame
+	jp c, .SubFromY
+	; if Y < Destination, add to Y
+	; if Y > Destination, subtract from Y
+.AddToY
+	ld a, [mainCharacter_YPos]
+	inc a
+	ld [mainCharacter_YPos], a		
+	jp .CheckXDestinationPositionDifference
+.SubFromY			
+	ld a, [mainCharacter_YPos]
+	dec a
+	ld [mainCharacter_YPos], a
+	jp .CheckXDestinationPositionDifference
+.YIsTheSame
+	ld d, 1
+	ld [mainCharacter_AllowMove], a
+.CheckXDestinationPositionDifference
+	; if the destination != the current position, process updates to move the player towards it
+	ld a, [mainCharacter_XPos]
+	ld b, a
+	ld a, [mainCharacter_XDestination]
+	cp a,b
+	; do the move closer math here
+	jp z, .XIsTheSame
+	jp c, .SubFromX
+	; if Y < Destination, add to X
+	; if Y > Destination, subtract from X
+.AddToX
+	ld a, [mainCharacter_XPos]
+	inc a
+	ld [mainCharacter_XPos], a		
+	jp .CheckIfAcceptingNewDestination
+.SubFromX			
+	ld a, [mainCharacter_XPos]
+	dec a
+	ld [mainCharacter_XPos], a
+	jp .CheckIfAcceptingNewDestination
+.XIsTheSame
+	ld e, 1
+	ld [mainCharacter_AllowMove], a
+.CheckIfAcceptingNewDestination
+	; check if both d and e flags are set
+	ld a, d
+	cp a, 1
+	jp nz, .KeyCheckFinished
+	ld a, e
+	cp a, 1
+	jp nz, .KeyCheckFinished
+	ld a, 1
+	ld [mainCharacter_AllowMove], a
+
+	ld a,[mainCharacter_AllowMove]			; check if we're allowed to accept a new destination
+	cp a, 1									; allowMove == 1 means accept new input
+	jp nz, .KeyCheckFinished				; otherwise just skip movement input
+.CheckForKeyPresses
 	ld a, [wCurKeys]
 	and a, PADF_UP
 	jp z, .CheckDownPressed
 
-	ld a, [mainCharacter_YPos]
-	sub 1
-	ld [mainCharacter_YPos], a
+	ld a, [mainCharacter_YDestination]
+	; check for low Y clamp
+	cp a, 8
+	jp c, .CheckDownPressed					; if Y is 8 or lower, just jump
+	sub 8
+	ld [mainCharacter_YDestination], a
+	ld a, 0
+	ld [mainCharacter_AllowMove], a
 
 .CheckDownPressed
 	ld a, [wCurKeys]
 	and a, PADF_DOWN
 	jp z, .CheckLeftPressed
 
-	ld a, [mainCharacter_YPos]
-	add 1
-	ld [mainCharacter_YPos], a
+	ld a, [mainCharacter_YDestination]
+	; check for high Y clamp
+	cp a, 144 - 16
+	jp nc, .CheckLeftPressed
+	add 8
+	ld [mainCharacter_YDestination], a
+	ld a, 0
+	ld [mainCharacter_AllowMove], a
 
 .CheckLeftPressed
 	ld a, [wCurKeys]
 	and a, PADF_LEFT
 	jp z, .CheckRightPressed
 
-	ld a, [mainCharacter_XPos]
-	sub 1
-	ld [mainCharacter_XPos], a
+	ld a, [mainCharacter_XDestination]
+	; check for low X clamp
+	cp a, 8
+	jp c, .CheckRightPressed				; if Y is 8 or lower, just jump
+	sub 8
+	ld [mainCharacter_XDestination], a
+	ld a, 0
+	ld [mainCharacter_AllowMove], a
 
 .CheckRightPressed
 	ld a, [wCurKeys]
 	and a, PADF_RIGHT
 	jp z, .KeyCheckFinished
 
-	ld a, [mainCharacter_XPos]
-	add 1
-	ld [mainCharacter_XPos], a
+	ld a, [mainCharacter_XDestination]
+	; check for high X clamp
+	cp a, 160 - 16
+	jp nc, .KeyCheckFinished
+	add 8
+	ld [mainCharacter_XDestination], a
+	ld a, 0
+	ld [mainCharacter_AllowMove], a
 
 .KeyCheckFinished
 
+.DestinationCollisionCheck
+	; take the intended destination, and if it would collide, just back out
+
+	ld a, [mainCharacter_XDestination]
+	ld b, a
+	ld a, [mainCharacter_YDestination]
+	ld c, a
+	call CheckCollisionAtXY
+
+	cp a, 1
+	jp z, .Collided
+	jp .FinishCollisionChecks
+
+.Collided									; just stop our character where he is
+	ld a, [mainCharacter_XPos]				; grab the current position
+	and %11111000							; truncate it down to the closest align 8
+	ld [mainCharacter_XDestination], a
+	
+	ld a, [mainCharacter_YPos]
+	and %11111000
+	ld [mainCharacter_YDestination], a
+
+.FinishCollisionChecks
 ; 	snap to a grid tests
 ;	ld a, [mainCharacter_XPos]
 ;	and %11111000
@@ -818,7 +961,7 @@ UpdateCursor:
 	; get player XPos and YPos
 	; calculate an offset from the top left to the intended position (adjust this with direction later)
 	ld a, [mainCharacter_XPos]		; grab the X position of the player
-	add 16							; offset from the top left
+	sub 8							; offset from the top left
 	ld b, a							; stick it in B ready for any function calls
 	ld a, [mainCharacter_YPos]		; do the same for Y
 	add 8
@@ -1056,7 +1199,7 @@ PlaceBox:
 	; get player XPos and YPos
 	; calculate an offset from the top left to the intended position (adjust this with direction later)
 	ld a, [mainCharacter_XPos]		; grab the X position of the player
-	add 16							; offset from the top left
+	sub 8							; offset from the top left
 	ld b, a							; stick it in B ready for any function calls
 	ld a, [mainCharacter_YPos]		; do the same for Y
 	add 8
