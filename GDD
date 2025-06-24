@@ -96,10 +96,14 @@ on the cart to make it easier
 
 Tuesday to-do:
 *Update the makefile to include map and symbol export (so I can use romusage)
+*Fix up the player so he doesn't use hardcoded OAM offsets
 Grid based movement
 Collision detection in the movement
+Direction in the movement code
+	^needs to be reflected in the box/cursor code
 *Conveyor that spawns it's own boxes when the current one gets picked up
-Sprite that appears over the box about to be picked up
+*Add a cursor to show where the boxes will be placed/picked up
+*	^Sprite that appears over the box about to be picked up
 *Spawn counter for the Conveyor
 	^number rendering
 Upload this to Itch.io

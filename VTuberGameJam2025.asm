@@ -30,8 +30,9 @@ wBoxTileIndex: db						; starting tile index for the box graphics
 wBoxesRemainingInLevel: db				; the amount of boxes we need to spawn
 wBoxesRemainingFlammable: db			; the amount of flammable boxes left to spawn
 wBoxesRemainingRadioactive: db			; the amount of radioactive boxes left to spawn
-	dstruct PLAYER, mainCharacter
+	dstruct PLAYER, mainCharacter		; declare our structs
 	dstruct BOX, currentActiveBox
+	dstruct CURSOR, boxCursor
 
 SECTION "Animation Data", WRAM0
 wPlayerCurrentFrame: db
@@ -599,6 +600,7 @@ InitialisePlayer:
 	ld [mainCharacter_YPos], a
 	ld a, 0
 	ld [mainCharacter_Direction], a
+	ld a, 128
 	ld [mainCharacter_OAMOffset], a
 
 	ld de, PlayerSpriteData
@@ -617,46 +619,53 @@ InitialisePlayer:
 	inc a
 	ld [mainCharacter_TileBR], a
 
+	; get OAM offset
+	ld a,  [mainCharacter_OAMOffset]	; get the offset from the start of OAM
+	ld h, 0
+	ld l, a								; load the offset into hl
+	ld bc, $FE00						; start of OAM memory
+	add hl, bc							; add the offset and the start of OAM together
+
 	; assign and update the OAM's
 	ld a, [mainCharacter_YPos]
-	ld [PLAYER_TOP_OAM], a
+	ld [hli], a
 	ld a, [mainCharacter_XPos]
-	ld [PLAYER_TOP_OAM + 1], a
+	ld [hli], a
 	ld a, [mainCharacter_TileTL]
-	ld [PLAYER_TOP_OAM + 2], a
+	ld [hli], a
 	ld a, %00000000
-	ld [PLAYER_TOP_OAM + 3], a
+	ld [hli], a
 	
 	ld a, [mainCharacter_YPos]
-	ld [PLAYER_TOP_OAM+4], a
+	ld [hli], a
 	ld a, [mainCharacter_XPos]
 	add 8
-	ld [PLAYER_TOP_OAM+4 + 1], a
+	ld [hli], a
 	ld a, [mainCharacter_TileTR]
-	ld [PLAYER_TOP_OAM+4 + 2], a
+	ld [hli], a
 	ld a, %00000000
-	ld [PLAYER_TOP_OAM+4 + 3], a
+	ld [hli], a
 	
 	ld a, [mainCharacter_YPos]
 	add 8
-	ld [PLAYER_TOP_OAM+8], a
+	ld [hli], a
 	ld a, [mainCharacter_XPos]
-	ld [PLAYER_TOP_OAM+8 + 1], a
+	ld [hli], a
 	ld a, [mainCharacter_TileBL]
-	ld [PLAYER_TOP_OAM+8 + 2], a
+	ld [hli], a
 	ld a, %00000000
-	ld [PLAYER_TOP_OAM+8 + 3], a
+	ld [hli], a
 	
 	ld a, [mainCharacter_YPos]
 	add 8
-	ld [PLAYER_TOP_OAM+12], a
+	ld [hli], a
 	ld a, [mainCharacter_XPos]
 	add 8
-	ld [PLAYER_TOP_OAM+12 + 1], a
+	ld [hli], a
 	ld a, [mainCharacter_TileBR]
-	ld [PLAYER_TOP_OAM+12 + 2], a
+	ld [hli], a
 	ld a, %00000000
-	ld [PLAYER_TOP_OAM+12 + 3], a
+	ld [hli], a
 
 	ret
 
@@ -710,37 +719,53 @@ UpdatePlayer:
 ;	ld [mainCharacter_YPos], a
 
 .UpdateOAM
+	; get OAM offset
+	ld a,  [mainCharacter_OAMOffset]	; get the offset from the start of OAM
+	ld h, 0
+	ld l, a								; load the offset into hl
+	ld bc, $FE00						; start of OAM memory
+	add hl, bc							; add the offset and the start of OAM together
+
 	ld a, [mainCharacter_YPos]
 	add 16							; make sure to set the sprite offsets
-	ld [PLAYER_TOP_OAM], a
+	ld [hli], a
 	ld a, [mainCharacter_XPos]
 	add 8							; make sure to set the sprite offsets
-	ld [PLAYER_TOP_OAM + 1], a
+	ld [hli], a
 	
+	inc hl							; skip two memory locations as we're only updating positions
+	inc hl
+
 	ld a, [mainCharacter_YPos]
 	add 16							; then add the metasprite offset							; make sure to set the sprite offsets
-	ld [PLAYER_TOP_OAM+4], a
+	ld [hli], a
 	ld a, [mainCharacter_XPos]
 	add 8							; make sure to set the sprite offsets
 	add 8							; then add the metasprite offset
-	ld [PLAYER_TOP_OAM+4 + 1], a
-	
+	ld [hli], a
+		
+	inc hl							; skip two memory locations as we're only updating positions
+	inc hl
+
 	ld a, [mainCharacter_YPos]
 	add 16							; make sure to set the sprite offsets
 	add 8							; then add the metasprite offset
-	ld [PLAYER_TOP_OAM+8], a
+	ld [hli], a
 	ld a, [mainCharacter_XPos]
 	add 8							; make sure to set the sprite offsets
-	ld [PLAYER_TOP_OAM+8 + 1], a
-	
+	ld [hli], a
+		
+	inc hl							; skip two memory locations as we're only updating positions
+	inc hl
+
 	ld a, [mainCharacter_YPos]
 	add 16							; make sure to set the sprite offsets
 	add 8							; then add the metasprite offset
-	ld [PLAYER_TOP_OAM+12], a
+	ld [hli], a
 	ld a, [mainCharacter_XPos]
 	add 8							; make sure to set the sprite offsets
 	add 8							; then add the metasprite offset
-	ld [PLAYER_TOP_OAM+12 + 1], a
+	ld [hli], a
 .UpdateOAMFinished
 
 	; screen scroll tests
@@ -750,6 +775,125 @@ UpdatePlayer:
 	;ld [rSCX], a
 	ret
 
+; call to load tiles and initialise variables
+InitialiseCursor:
+	; zero out everything
+	ld a, 0
+	ld [boxCursor_YPos], a
+	ld [boxCursor_XPos], a
+	ld [boxCursor_Tile], a
+	ld [boxCursor_Enabled], a
+	ld a, 20					; TODO: hardcoded OAM
+	ld [boxCursor_OAMOffset], a	; set the OAM offset to be clear of the player character and box object
+
+	ld de, CursorSpriteData
+	ld bc, CursorSpriteDataEnd - CursorSpriteData
+	ld a, 0
+	call TileLoader
+
+	ld a, c
+	ld [boxCursor_Tile], a
+
+	; initialise the OAM
+	ld hl, _OAMRAM				; grab the address for the top of the OAM
+	ld a, [boxCursor_OAMOffset]
+	ld b, a
+	ld a, l
+	add b	; add the offset
+	ld l, a
+
+	ld a, [boxCursor_YPos]
+	ld [hli], a
+	ld a, [boxCursor_XPos]
+	ld [hli], a
+	ld a, [boxCursor_Tile]
+	ld [hli], a
+	ld a, %00000000
+	ld [hli], a
+
+	ret
+
+; call each frame to make sure the cursor is placed in the correct spot
+UpdateCursor:
+	; get player XPos and YPos
+	; calculate an offset from the top left to the intended position (adjust this with direction later)
+	ld a, [mainCharacter_XPos]		; grab the X position of the player
+	add 16							; offset from the top left
+	ld b, a							; stick it in B ready for any function calls
+	ld a, [mainCharacter_YPos]		; do the same for Y
+	add 8
+	ld c, a
+	push bc							; save the X/Y position
+	; call get tile by pixel to get the tile offset
+	call GetTileAddressByPixel
+	pop bc
+	; check if the tile index is above 128, if so then 
+	; check if there's a box in hand, or if there's a box in front of us
+	ld a, [hl]						; get the tile type at that address
+	cp a, 127						; compare to 127, if > 127, carry bit will not be set
+	jp nc, .EnableCursor				; if carry bit set, jump to pick up box
+
+	ld a, [wBoxBeingHeld]
+	cp a, 1
+	jp nc, .EnableCursor
+	
+.DisableCursor
+	ld a, 0
+	ld [boxCursor_Enabled], a
+	jp .EnabledCheck
+.EnableCursor
+	ld a, 1
+	ld [boxCursor_Enabled], a
+	ld a, b
+	add 8							; do X position offset
+	and %11111000					; mask it to snap it to the lowest align by 8 pixel position
+	ld [boxCursor_XPos], a
+	ld a, c
+	add 16
+	and %11111000
+	ld [boxCursor_YPos], a
+.EnabledCheck
+	ld a, [boxCursor_Enabled]
+	cp a, 0
+	jp z, .DoNotDraw
+	call EnableCursor
+	jp .FinishedDrawing
+.DoNotDraw
+	call DisableCursor
+.FinishedDrawing
+	ret 
+
+; show the cursor
+EnableCursor:
+	; get OAM offset
+	ld a,  [boxCursor_OAMOffset]	; get the offset from the start of OAM
+	ld h, 0
+	ld l, a								; load the offset into hl
+	ld bc, $FE00						; start of OAM memory
+	add hl, bc							; add the offset and the start of OAM together
+
+	ld a, [boxCursor_YPos]				; update the OAM with the new position
+	ld [hli], a
+	ld a, [boxCursor_XPos]
+	ld [hli], a
+
+	ret
+
+; hide the cursor
+DisableCursor:
+	; get OAM offset
+	ld a,  [boxCursor_OAMOffset]	; get the offset from the start of OAM
+	ld h, 0
+	ld l, a								; load the offset into hl
+	ld bc, $FE00						; start of OAM memory
+	add hl, bc							; add the offset and the start of OAM together
+	
+	ld a, 0								; update the OAM with the disabled/offscreen position
+	ld [hli], a
+	ld [hli], a
+
+	ret
+
 ; call to load the tiles and initialise variables
 InitialiseBoxes:
 	ld a, 0
@@ -757,7 +901,7 @@ InitialiseBoxes:
 	ld [wBoxBeingHeld], a
 	ld [currentActiveBox_YPos], a
 	ld [currentActiveBox_XPos], a
-	ld a, 16
+	ld a, 16										; TODO: hardcoded OAM
 	ld [currentActiveBox_OAMOffset], a				; set the OAM offset to be clear of the player character
 
 	ld de, BoxesSpriteData
@@ -922,7 +1066,7 @@ PlaceBox:
 	; check if the tile index is above 128, if so then 
 	; check if there's a box in hand, if not, then pick up the box instead
 	ld a, [hl]						; get the tile type at that address
-	cp a, 127						; compare to 127, if > 127, carry bit will be set
+	cp a, 127						; compare to 127, if > 127, carry bit will not be set
 	jp nc, .PickUpBox				; if carry bit not set, jump to pick up box
 .PutDownBox
 	; check if we're holding a box, if we're not, then don't put anything down
@@ -1170,6 +1314,7 @@ StartMenuEntry:							; main game loop
 	call DisableSound
 	call InitialisePlayer
 	call InitialiseBoxes
+	call InitialiseCursor
 	call SpawnBoxAtConveyor
 
 	ld a, 0
@@ -1224,6 +1369,7 @@ call UpdateKeys
 call UpdatePlayer
 
 call UpdateBox
+call UpdateCursor
 
 .CheckBoxSpawn
 	ld a, [wCurKeys]
@@ -1270,8 +1416,6 @@ call UpdateBox
 
 jp StartMenuMain
 
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;	DATA
 ;;	BLOCK
@@ -1284,6 +1428,9 @@ AlphabetTilesEnd:
 
 PlayerSpriteData: INCBIN "gfx/player.2bpp"
 PlayerSpriteDataEnd:
+
+CursorSpriteData: INCBIN "gfx/cursor.2bpp"
+CursorSpriteDataEnd:
 
 BoxesSpriteData: INCBIN "gfx/boxes.2bpp"
 BoxesSpriteDataEnd:
