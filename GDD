@@ -76,8 +76,8 @@ Collision based on background tiles
 *^ proven it can be done, will make level 2/3 scrollable
 *boxes that are placable
 a "scoring" area for the boxes
-a conveyor belt that distributes the boxes in a random order (always set boxes for a level, just different order)
-two different types of hazardous box (explosive and radioactive)
+*a conveyor belt that distributes the boxes in a random order (always set boxes for a level, just different order)
+*two different types of hazardous box (explosive and radioactive)
 *placeholder graphics for the two boxes, conveyor belt, level and player 
 
 Monday Notes:
@@ -94,8 +94,20 @@ use that as a buffer for “previous” tiles (copy 9800 to 9BFF) (might not nee
 ROM tilemap?) can calculate offsets the way we did with the tile loader (use 16-bit add/subtracts, can byte align the tilemap
 on the cart to make it easier
 
+Tuesday to-do:
+*Update the makefile to include map and symbol export (so I can use romusage)
+Grid based movement
+Collision detection in the movement
+*Conveyor that spawns it's own boxes when the current one gets picked up
+Sprite that appears over the box about to be picked up
+*Spawn counter for the Conveyor
+	^number rendering
+Upload this to Itch.io
+End State Checking (shows victory on screen if all boxes placed in area with nothing adjacent and wrong)
+
 Features that are polish:
 Refined graphics for the two boxes, conveyor belt, player and level
+Animated Conveyor Belt
 CGB support, SGB support
 Dialogue with characters
 Tiny story that continues

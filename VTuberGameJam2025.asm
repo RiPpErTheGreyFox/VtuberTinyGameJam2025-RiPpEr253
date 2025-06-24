@@ -4,10 +4,12 @@ INCLUDE "include/cargoGameStructs.inc"	; out of file definitions
 ; graphical defines
 DEF PLAYER_TOP_OAM EQU _OAMRAM
 
-
 ; Gameplay Constants
 DEF DEFAULT_ITEMS_REMAINING EQU %00010000	; 10 in BCD
 DEF DEFAULT_DEBOUNCE_FRAMES EQU 30
+DEF DEFAULT_LEVELONE_BOXCOUNT EQU 15
+DEF DEFAULT_LEVELONE_FLAMMABLE_BOXCOUNT EQU 5
+DEF DEFAULT_LEVELONE_RADIOACTIVE_BOXCOUNT EQU 5
 ; gameplay definitions
 
 SECTION "Counter", WRAM0
@@ -25,6 +27,9 @@ SECTION "Gameplay Data", WRAM0
 wBoxInPlay: db							; treat as a bool
 wBoxBeingHeld: db						; bool
 wBoxTileIndex: db						; starting tile index for the box graphics
+wBoxesRemainingInLevel: db				; the amount of boxes we need to spawn
+wBoxesRemainingFlammable: db			; the amount of flammable boxes left to spawn
+wBoxesRemainingRadioactive: db			; the amount of radioactive boxes left to spawn
 	dstruct PLAYER, mainCharacter
 	dstruct BOX, currentActiveBox
 
@@ -762,17 +767,73 @@ InitialiseBoxes:
 
 	ld a, c
 	ld [currentActiveBox_Tile], a
+
+	; set the counters based on level
+	; TODO: make this based on level
+	ld a, DEFAULT_LEVELONE_BOXCOUNT
+	ld [wBoxesRemainingInLevel], a 
+	ld a, DEFAULT_LEVELONE_FLAMMABLE_BOXCOUNT
+	ld [wBoxesRemainingFlammable], a
+	ld a, DEFAULT_LEVELONE_RADIOACTIVE_BOXCOUNT
+	ld [wBoxesRemainingRadioactive], a
+
 	ret
 
 ; Spawns a box at the conveyor dropoff point
 ; @clobbers a, bc, d, hl
 SpawnBoxAtConveyor:
+	; check to see if there's already a box there
+	ld b, 16						; load the X/Y values to get the address
+	ld c, 64
+	call GetTileAddressByPixel
+	
+	ld a, [hl]						; get the tile type at that address
+	cp a, 127						; compare to 127, if > 127, carry bit will be not set
+	jp nc, .EndOfFunc				; if carry bit not set, there's already a box there, jump out
 
+	; check to see if we have any boxes remaining to spawn
+	ld a, [wBoxesRemainingInLevel]
+	cp a, 0
+	jp z, .EndOfFunc
+
+	; otherwise, continue
 	call RandomNumberFour			; get a number between 0-2, this gives 0-3
+	ld b, a							; store the random number in b to keep a safe copy
 	cp a, 3							; if we get a 3
-	jp nz, .OffsetCalc				; just decrement it
+	jp nz, .CounterChecks			
+	dec a							; just decrement it
+	ld b, a
+.CounterChecks
+	; here we check to see if there's any boxes of the type selected available, if there isn't,
+	; move on to the next type
+	; if radioactive check if radioactive left
+.RadioactiveCheck
+	ld a, b							; load b (temp random number) into a
+	cp a, 2
+	jp nz, .FlammableCheck			; if there is, check if it's not zero
+	ld a, [wBoxesRemainingRadioactive]
+	cp a, 0
+	jp z, .NoRadioactiveLeft		; if there's no radioactive boxes left in the counter, jump
 	dec a
+	ld [wBoxesRemainingRadioactive], a
+	jp .OffsetCalc					; we're spawning a radioactive box
+.NoRadioactiveLeft
+	ld b, 1							; switch the temp box to flammable
+.FlammableCheck
+	; if flammable check if flammable left
+	ld a, b							; load b (temp random number) into a
+	cp a, 1
+	jp nz, .OffsetCalc				; if there is, check there's more than zero remaining
+	ld a, [wBoxesRemainingFlammable]
+	cp a, 0
+	jp z, .NoFlammableLeft			; if there's no flammables left, jump
+	dec a
+	ld [wBoxesRemainingFlammable], a
+	jp .OffsetCalc					; we're spawning a flammable box
+.NoFlammableLeft
+	ld b, 0							; just do a normal crate
 .OffsetCalc
+	ld a, b							; retrieve the temp variable for random box type (may have been modified by box checks)
 	add 128
 	ld d, a
 
@@ -784,6 +845,11 @@ SpawnBoxAtConveyor:
 	ld a, d
 	ld [hl], a
 
+	; we've spawned a box, lower the counter
+	ld a, [wBoxesRemainingInLevel]
+	dec a
+	ld [wBoxesRemainingInLevel], a
+.EndOfFunc
 	ret
 
 ; spawn an object version of a box
@@ -897,6 +963,7 @@ PlaceBox:
 	ld [wBoxBeingHeld], a
 	ld [wBoxInPlay], a
 	call UpdateBox					; immediately update it to not have the one frame delay
+	call SpawnBoxAtConveyor			; place down another box at the conveyor (validity checks are done in function)
 
 .EndOfFunc
 	ret
@@ -1100,7 +1167,7 @@ StartMenuEntry:							; main game loop
 .EndOfCGBPalette
 
 	; Initialise variables
-
+	call DisableSound
 	call InitialisePlayer
 	call InitialiseBoxes
 	call SpawnBoxAtConveyor
@@ -1163,9 +1230,9 @@ call UpdateBox
 	and a, PADF_A
 	jp nz, .BoxSpawn
 
-	ld a, [wCurKeys]
-	and a, PADF_B
-	jp nz, .BoxDespawn
+	;ld a, [wCurKeys]
+	;and a, PADF_B
+	;jp nz, .BoxDespawn
 
 	jp .CheckStartPressed
 
@@ -1178,7 +1245,6 @@ call UpdateBox
 	call PlaceBox							; make sure to set debounce ourselves
 	jp .CheckStartPressed
 .BoxDespawn
-	call SpawnBoxAtConveyor					; DEBUG TODO: remove this
 	;call DisableBox
 .CheckStartPressed:
 	;ld a, [wCurKeys]
@@ -1221,10 +1287,6 @@ PlayerSpriteDataEnd:
 
 BoxesSpriteData: INCBIN "gfx/boxes.2bpp"
 BoxesSpriteDataEnd:
-
-	; TODO: Come up with a way to load all 240 tiles at once
-	; Seems like the tile map generator expects to play the title screen
-	; at memory location $8000, so make sure to flip LCDC bit 4
 
 LevelOneTiles: INCBIN "gfx/backgrounds/Level1Background.2bpp"
 LevelOneTilesEnd:
