@@ -97,11 +97,16 @@ on the cart to make it easier
 Tuesday to-do:
 *Update the makefile to include map and symbol export (so I can use romusage)
 *Fix up the player so he doesn't use hardcoded OAM offsets
-Grid based movement
-Collision detection in the movement
+*Grid based movement
+*	^ have a destination word for X/Y, use player update to shift player per frame to that destination
+*		have a flag for accepting new input, when accepting new input, a button press will set the destination to
+*		be 8 pixels in the direction pressed
+*Collision detection in the movement
+	^directional collision detection
 Direction in the movement code
 	^needs to be reflected in the box/cursor code
 *Conveyor that spawns it's own boxes when the current one gets picked up
+	^check if both special crates together >= remaining crates, if so, push temp crate type to top
 *Add a cursor to show where the boxes will be placed/picked up
 *	^Sprite that appears over the box about to be picked up
 *Spawn counter for the Conveyor

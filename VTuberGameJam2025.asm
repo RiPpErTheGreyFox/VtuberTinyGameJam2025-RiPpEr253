@@ -988,7 +988,7 @@ UpdateCursor:
 	ld a, 1
 	ld [boxCursor_Enabled], a
 	ld a, b
-	add 8							; do X position offset
+	add 8							; do X position offset for OAM offset
 	and %11111000					; mask it to snap it to the lowest align by 8 pixel position
 	ld [boxCursor_XPos], a
 	ld a, c
