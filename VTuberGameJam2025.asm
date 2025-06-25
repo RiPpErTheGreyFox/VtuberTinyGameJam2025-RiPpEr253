@@ -783,6 +783,8 @@ UpdatePlayer:
 	sub 8
 	ld [mainCharacter_YDestination], a
 	ld a, 0
+	ld [mainCharacter_Direction], a
+	ld a, 0
 	ld [mainCharacter_AllowMove], a
 
 .CheckDownPressed
@@ -796,6 +798,8 @@ UpdatePlayer:
 	jp nc, .CheckLeftPressed
 	add 8
 	ld [mainCharacter_YDestination], a
+	ld a, 2
+	ld [mainCharacter_Direction], a
 	ld a, 0
 	ld [mainCharacter_AllowMove], a
 
@@ -810,6 +814,8 @@ UpdatePlayer:
 	jp c, .CheckRightPressed				; if Y is 8 or lower, just jump
 	sub 8
 	ld [mainCharacter_XDestination], a
+	ld a, 3
+	ld [mainCharacter_Direction], a
 	ld a, 0
 	ld [mainCharacter_AllowMove], a
 
@@ -824,6 +830,8 @@ UpdatePlayer:
 	jp nc, .KeyCheckFinished
 	add 8
 	ld [mainCharacter_XDestination], a
+	ld a, 1
+	ld [mainCharacter_Direction], a
 	ld a, 0
 	ld [mainCharacter_AllowMove], a
 
@@ -832,6 +840,21 @@ UpdatePlayer:
 .DestinationCollisionCheck
 	; take the intended destination, and if it would collide, just back out
 
+	; do direction based collision checking 0 = N, 1 = E, 2 = S, 3 = W
+	ld a, [mainCharacter_Direction]
+	cp a, 0
+	jp z, .NorthCheck
+	cp a, 1
+	jp z, .EastCheck
+	cp a, 2
+	jp z, .SouthCheck
+	cp a, 3
+	jp z, .WestCheck
+
+	; TODO: exception handling
+	jp .FinishCollisionChecks
+
+.NorthCheck
 	ld a, [mainCharacter_XDestination]
 	ld b, a
 	ld a, [mainCharacter_YDestination]
@@ -840,6 +863,84 @@ UpdatePlayer:
 
 	cp a, 1
 	jp z, .Collided
+
+	ld a, [mainCharacter_XDestination]
+	add 8
+	ld b, a
+	ld a, [mainCharacter_YDestination]
+	ld c, a
+	call CheckCollisionAtXY
+
+	cp a, 1
+	jp z, .Collided
+
+	jp .FinishCollisionChecks
+.EastCheck
+	ld a, [mainCharacter_XDestination]
+	add 8
+	ld b, a
+	ld a, [mainCharacter_YDestination]
+	ld c, a
+	call CheckCollisionAtXY
+
+	cp a, 1
+	jp z, .Collided
+
+	ld a, [mainCharacter_XDestination]
+	add 8
+	ld b, a
+	ld a, [mainCharacter_YDestination]
+	add 8
+	ld c, a
+	call CheckCollisionAtXY
+
+	cp a, 1
+	jp z, .Collided
+
+	jp .FinishCollisionChecks
+.SouthCheck
+	ld a, [mainCharacter_XDestination]
+	ld b, a
+	ld a, [mainCharacter_YDestination]
+	add 8
+	ld c, a
+	call CheckCollisionAtXY
+
+	cp a, 1
+	jp z, .Collided
+
+	ld a, [mainCharacter_XDestination]
+	add 8
+	ld b, a
+	ld a, [mainCharacter_YDestination]
+	add 8
+	ld c, a
+	call CheckCollisionAtXY
+
+	cp a, 1
+	jp z, .Collided
+
+	jp .FinishCollisionChecks
+.WestCheck
+	ld a, [mainCharacter_XDestination]
+	ld b, a
+	ld a, [mainCharacter_YDestination]
+	ld c, a
+	call CheckCollisionAtXY
+
+	cp a, 1
+	jp z, .Collided
+
+	ld a, [mainCharacter_XDestination]
+	ld b, a
+	ld a, [mainCharacter_YDestination]
+	add 8
+	ld c, a
+	call CheckCollisionAtXY
+
+	cp a, 1
+	jp z, .Collided
+
 	jp .FinishCollisionChecks
 
 .Collided									; just stop our character where he is
