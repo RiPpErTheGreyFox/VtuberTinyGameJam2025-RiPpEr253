@@ -102,17 +102,21 @@ Tuesday to-do:
 *		have a flag for accepting new input, when accepting new input, a button press will set the destination to
 *		be 8 pixels in the direction pressed
 *Collision detection in the movement
-	^directional collision detection
-Direction in the movement code
-	^needs to be reflected in the box/cursor code
+*	^directional collision detection
+*Direction in the movement code
+*	^needs to be reflected in the box/cursor code
 *Conveyor that spawns it's own boxes when the current one gets picked up
-	^check if both special crates together >= remaining crates, if so, push temp crate type to top
+*	^check if both special crates added together >= remaining crates, if so, push temp crate type to top
 *Add a cursor to show where the boxes will be placed/picked up
 *	^Sprite that appears over the box about to be picked up
 *Spawn counter for the Conveyor
 	^number rendering
 Upload this to Itch.io
 End State Checking (shows victory on screen if all boxes placed in area with nothing adjacent and wrong)
+
+Notes:
+Consider disabling diagonals
+*Check if both special crates added together >= remaining crates, if so, push temp crate type to top
 
 Features that are polish:
 Refined graphics for the two boxes, conveyor belt, player and level

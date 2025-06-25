@@ -83,6 +83,7 @@ Memcopy:
 	ret
 
 ; Waits until out of mode 3
+; idles the CPU until we're out of mode 3
 WaitNoMode3:
 	push hl						; save the desination address to the stack as HL gets clobbered
 
@@ -703,6 +704,53 @@ CheckCollisionAtXY:
 	ld a, 1
 	ret
 
+; Function for checking and adjusting the direction based offsets for box related positions
+; @param bc: x/y
+; @clobbers a
+; @return bc: x/y
+AdjustBoxOffsetForDirection:
+	; do direction based offsetting 0 = N, 1 = E, 2 = S, 3 = W
+	ld a, [mainCharacter_Direction]
+	cp a, 0
+	jp z, .NorthCursor
+	cp a, 1
+	jp z, .EastCursor
+	cp a, 2
+	jp z, .SouthCursor
+	cp a, 3
+	jp z, .WestCursor
+
+.NorthCursor						; offset the cursor to appear in the correct spot
+	ld a, b							; remember that it starts at -8/+8
+	add 8
+	ld b, a
+	ld a, c
+	sub 16
+	ld c, a
+	jp .EndOfFunc
+.EastCursor
+	ld a, b				
+	add 24
+	ld b, a
+	ld a, c
+	add 0
+	ld c, a
+	jp .EndOfFunc
+.SouthCursor	
+	ld a, b				
+	add 8
+	ld b, a
+	ld a, c
+	add 8
+	ld c, a
+	jp .EndOfFunc
+.WestCursor
+	; defaults are for west cursor
+	jp .EndOfFunc
+
+.EndOfFunc
+	ret
+
 ; UpdatePlayer runs through the per frame updates required
 ; usually input and collision checking
 UpdatePlayer:
@@ -1067,6 +1115,9 @@ UpdateCursor:
 	ld a, [mainCharacter_YPos]		; do the same for Y
 	add 8
 	ld c, a
+	
+	call AdjustBoxOffsetForDirection
+
 	push bc							; save the X/Y position
 	; call get tile by pixel to get the tile offset
 	call GetTileAddressByPixel
@@ -1174,6 +1225,7 @@ SpawnBoxAtConveyor:
 	ld b, 16						; load the X/Y values to get the address
 	ld c, 64
 	call GetTileAddressByPixel
+	call WaitNoMode3
 	
 	ld a, [hl]						; get the tile type at that address
 	cp a, 127						; compare to 127, if > 127, carry bit will be not set
@@ -1192,6 +1244,20 @@ SpawnBoxAtConveyor:
 	dec a							; just decrement it
 	ld b, a
 .CounterChecks
+	; first we check if the sum of the special box types match the total
+	; if so, we just set the temp box type to the "highest" special box type, so that it
+	; "falls down" into the special types to ensure no issues
+	ld a, [wBoxesRemainingFlammable]
+	ld c, a
+	ld a, [wBoxesRemainingRadioactive]
+	add c							; grab both box types and then sum them together
+	ld c, a 							; put the result into c
+	ld a, [wBoxesRemainingInLevel]	; compare the sum to the total remaining
+	cp a, c
+	jp nz, .RadioactiveCheck		; if these don't match, then just skip to normal checking
+									; otherwise there's only exactly enough boxes to spawn the rest of the special boxes
+	ld b, 2							; set the special box type to the "highest" available
+
 	; here we check to see if there's any boxes of the type selected available, if there isn't,
 	; move on to the next type
 	; if radioactive check if radioactive left
@@ -1229,6 +1295,8 @@ SpawnBoxAtConveyor:
 	ld c, 64
 
 	call GetTileAddressByPixel
+
+	call WaitNoMode3
 
 	ld a, d
 	ld [hl], a
@@ -1305,6 +1373,9 @@ PlaceBox:
 	ld a, [mainCharacter_YPos]		; do the same for Y
 	add 8
 	ld c, a
+
+	call AdjustBoxOffsetForDirection
+
 	; call get tile by pixel to get the tile offset
 	call GetTileAddressByPixel
 	; check if the tile index is above 128, if so then 
@@ -1319,7 +1390,8 @@ PlaceBox:
 	; TODO: play a sound
 	jp z, .EndOfFunc
 	; replace the tile index with the box tile to place down the box
-	ld a, [currentActiveBox_Tile]	; TODO: This is hardcoded to a specific tile index, undo this later
+	call WaitNoMode3
+	ld a, [currentActiveBox_Tile]
 	ld [hl], a
 	; call disable box to remove the object box
 	call DisableBox
@@ -1342,6 +1414,7 @@ PlaceBox:
 	call ConvertVRAMTileMapToROMTileMap	; grab the original tilemap from ROM
 	ld a, [hl]						; get the original tile underneath
 	pop hl							; grab the VRAM tilemap address again
+	call WaitNoMode3
 	ld [hl], a
 
 	; spawn the box and put in the players hand
