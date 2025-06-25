@@ -68,10 +68,10 @@ Create metasprites/animations and handler for them
 Needed for MVP:
 *Write Checklist
 *Player character that is movable from top-down perspective
-^ need to answer the question, freeform movement or grid movement
-	^almost certainly grid based movement (see pokemon)
-	^ work out grid based movement (have an accepting input state, when accepting input set a destination for the next grid position)
-Collision based on background tiles
+*^ need to answer the question, freeform movement or grid movement
+*	^almost certainly grid based movement (see pokemon)
+*	^ work out grid based movement (have an accepting input state, when accepting input set a destination for the next grid position)
+*Collision based on background tiles
 *scrollable level 1
 *^ proven it can be done, will make level 2/3 scrollable
 *boxes that are placable
@@ -110,7 +110,7 @@ Tuesday to-do:
 *Add a cursor to show where the boxes will be placed/picked up
 *	^Sprite that appears over the box about to be picked up
 *Spawn counter for the Conveyor
-	^number rendering
+*	^number rendering
 Upload this to Itch.io
 End State Checking (shows victory on screen if all boxes placed in area with nothing adjacent and wrong)
 
