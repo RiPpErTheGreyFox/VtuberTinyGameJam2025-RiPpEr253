@@ -96,6 +96,7 @@ DrawTextTilesLoop:
 	ld b, a
 	ld a, [hl]
 	add b
+	call WaitNoMode3
 	ld [de], a
 
 	inc hl

@@ -15,7 +15,7 @@ wCurKeys: db							; label: declare byte, reserves a byte for use later
 wNewKeys: db
 
 SECTION "Item Data", ROMX
-wTestText::  db "testing", 255
+wVictoryString::  db "youre winner", 255
 SECTION "NumberStringData", WRAM0
 wNumberStringData: db
 	:db
@@ -304,6 +304,13 @@ call UpdateKeys
 call UpdatePlayer
 call UpdateBox
 call UpdateCursor
+
+ld a, [wVictoryFlagSet]
+cp a, 1
+jp nz, .CheckBoxSpawn
+	ld hl, wVictoryString
+	ld de, $9800 + 96
+	call DrawTextTilesLoop
 
 .CheckBoxSpawn
 	ld a, [wCurKeys]

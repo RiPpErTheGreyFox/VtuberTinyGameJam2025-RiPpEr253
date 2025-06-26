@@ -487,6 +487,8 @@ UpdateCursor:
 .DisableCursor
 	ld a, 0
 	ld [boxCursor_Enabled], a
+	ld [boxCursor_XPos], a
+	ld [boxCursor_YPos], a
 	jp .EnabledCheck
 .EnableCursor
 	ld a, 1
@@ -995,6 +997,16 @@ DrawBoxObject:
 
 ; Cursor Draw function
 DrawCursorObject:
+	ld a, [boxCursor_XPos]				; load the position into bc
+	ld d, a
+	ld a, [boxCursor_YPos]
+	ld e, a
+	ld a, [boxCursor_Enabled]
+	cp a, 1
+	jp z, .StartDrawing
+	ld d, 0								; if it's not supposed to be enabled just set the positions to 0
+	ld e, 0
+.StartDrawing
 	; initialise the OAM
 	ld hl, _OAMRAM				; grab the address for the top of the OAM
 	ld a, [boxCursor_OAMOffset]
@@ -1006,12 +1018,14 @@ DrawCursorObject:
 	call WaitNoMode3
 
 	ld a, [boxCursor_YPos]
-	ld [hli], a
+	ld [hl], e
+	inc hl
 	ld a, [boxCursor_XPos]
-	ld [hli], a
+	ld [hl], d
+	inc hl
 	ld a, [boxCursor_Tile]
 	ld [hli], a
 	ld a, %00000000
 	ld [hli], a
-
+.EndOfFunc
 	ret
