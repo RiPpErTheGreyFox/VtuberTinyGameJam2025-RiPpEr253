@@ -108,6 +108,7 @@ DrawTextTilesLoop:
 ; @param a: the number to turn into a string
 ; @param hl: memory address of the block of RAM to output the string to
 NumberToString:
+	add 0
     daa                                     ; Use Decimal Adjust to turn the 8-bit number into a BCD number
     ld b, a                                 ; copy the number into the b register
     swap a                                  ; swap the 4-bit nibbles so the tens is in the 4 LSB

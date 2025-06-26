@@ -43,6 +43,8 @@ InitialisePlayer:
 	ld bc, $FE00						; start of OAM memory
 	add hl, bc							; add the offset and the start of OAM together
 
+	call WaitNoMode3
+
 	; assign and update the OAM's
 	ld a, [mainCharacter_YPos]
 	ld [hli], a
@@ -93,6 +95,8 @@ InitialisePlayer:
 CheckCollisionAtXY:
 	; bc is already in the registers ready to call
 	call GetTileAddressByPixel
+	
+	call WaitNoMode3
 	
 	ld a, [hl]						; get the tile type at that address
 	cp a, 127						; compare to 127, if > 127, carry bit will be not set
@@ -422,56 +426,6 @@ UpdatePlayer:
 ;	and %11111000
 ;	ld [mainCharacter_YPos], a
 
-.UpdateOAM
-	; get OAM offset
-	ld a,  [mainCharacter_OAMOffset]	; get the offset from the start of OAM
-	ld h, 0
-	ld l, a								; load the offset into hl
-	ld bc, $FE00						; start of OAM memory
-	add hl, bc							; add the offset and the start of OAM together
-
-	ld a, [mainCharacter_YPos]
-	add 16							; make sure to set the sprite offsets
-	ld [hli], a
-	ld a, [mainCharacter_XPos]
-	add 8							; make sure to set the sprite offsets
-	ld [hli], a
-	
-	inc hl							; skip two memory locations as we're only updating positions
-	inc hl
-
-	ld a, [mainCharacter_YPos]
-	add 16							; then add the metasprite offset							; make sure to set the sprite offsets
-	ld [hli], a
-	ld a, [mainCharacter_XPos]
-	add 8							; make sure to set the sprite offsets
-	add 8							; then add the metasprite offset
-	ld [hli], a
-		
-	inc hl							; skip two memory locations as we're only updating positions
-	inc hl
-
-	ld a, [mainCharacter_YPos]
-	add 16							; make sure to set the sprite offsets
-	add 8							; then add the metasprite offset
-	ld [hli], a
-	ld a, [mainCharacter_XPos]
-	add 8							; make sure to set the sprite offsets
-	ld [hli], a
-		
-	inc hl							; skip two memory locations as we're only updating positions
-	inc hl
-
-	ld a, [mainCharacter_YPos]
-	add 16							; make sure to set the sprite offsets
-	add 8							; then add the metasprite offset
-	ld [hli], a
-	ld a, [mainCharacter_XPos]
-	add 8							; make sure to set the sprite offsets
-	add 8							; then add the metasprite offset
-	ld [hli], a
-.UpdateOAMFinished
-
 	; screen scroll tests
 	;ld a, [mainCharacter_YPos]
 	;ld [rSCY], a
@@ -487,8 +441,8 @@ InitialiseCursor:
 	ld [boxCursor_XPos], a
 	ld [boxCursor_Tile], a
 	ld [boxCursor_Enabled], a
-	ld a, 20					; TODO: hardcoded OAM
-	ld [boxCursor_OAMOffset], a	; set the OAM offset to be clear of the player character and box object
+	ld a, 0							; TODO: hardcoded OAM
+	ld [boxCursor_OAMOffset], a		; set the OAM offset to be clear of the player character and box object
 
 	ld de, CursorSpriteData
 	ld bc, CursorSpriteDataEnd - CursorSpriteData
@@ -497,23 +451,6 @@ InitialiseCursor:
 
 	ld a, c
 	ld [boxCursor_Tile], a
-
-	; initialise the OAM
-	ld hl, _OAMRAM				; grab the address for the top of the OAM
-	ld a, [boxCursor_OAMOffset]
-	ld b, a
-	ld a, l
-	add b	; add the offset
-	ld l, a
-
-	ld a, [boxCursor_YPos]
-	ld [hli], a
-	ld a, [boxCursor_XPos]
-	ld [hli], a
-	ld a, [boxCursor_Tile]
-	ld [hli], a
-	ld a, %00000000
-	ld [hli], a
 
 	ret
 
@@ -531,6 +468,7 @@ UpdateCursor:
 	call AdjustBoxOffsetForDirection
 
 	push bc							; save the X/Y position
+	call WaitNoMode3
 	; call get tile by pixel to get the tile offset
 	call GetTileAddressByPixel
 	pop bc
@@ -563,7 +501,7 @@ UpdateCursor:
 	ld a, [boxCursor_Enabled]
 	cp a, 0
 	jp z, .DoNotDraw
-	call EnableCursor
+	;call EnableCursor
 	jp .FinishedDrawing
 .DoNotDraw
 	call DisableCursor
@@ -588,16 +526,9 @@ EnableCursor:
 
 ; hide the cursor
 DisableCursor:
-	; get OAM offset
-	ld a,  [boxCursor_OAMOffset]	; get the offset from the start of OAM
-	ld h, 0
-	ld l, a								; load the offset into hl
-	ld bc, $FE00						; start of OAM memory
-	add hl, bc							; add the offset and the start of OAM together
-	
-	ld a, 0								; update the OAM with the disabled/offscreen position
-	ld [hli], a
-	ld [hli], a
+	ld a, 0
+	ld [boxCursor_YPos], a
+	ld [boxCursor_XPos], a
 
 	ret
 
@@ -735,45 +666,14 @@ SpawnBoxObject:
 	ld a, 0
 	ld [wBoxBeingHeld], a
 
-	; initialise the OAM
-	ld hl, _OAMRAM				; grab the address for the top of the OAM
-	ld a, [currentActiveBox_OAMOffset]
-	ld b, a
-	ld a, l
-	add b	; add the offset
-	ld l, a
-
-    call WaitNoMode3
-
-	ld a, [currentActiveBox_YPos]
-	ld [hli], a
-	ld a, [currentActiveBox_XPos]
-	ld [hli], a
-	ld a, [currentActiveBox_Tile]
-	ld [hli], a
-	ld a, %00000000
-	ld [hli], a
-
 	ret
 
 ; disables the current box
-DisableBox:
-	; initialise the OAM
-	ld hl, _OAMRAM				; grab the address for the top of the OAM
-	ld a, [currentActiveBox_OAMOffset]
-	ld b, a
-	ld a, l
-	add b	; add the offset
-	ld l, a
-
-    call WaitNoMode3
-
+; @clobbers a
+DisableBox:	
 	ld a, 0
-	ld [hli], a
-	ld [hli], a
-	ld [hli], a
-	ld [hli], a
-
+	ld [currentActiveBox_XPos], a
+	ld [currentActiveBox_YPos], a
 	ld [wBoxInPlay], a
 	ld [wBoxBeingHeld], a
 	ret
@@ -841,7 +741,6 @@ PlaceBox:
 	ld a, 1
 	ld [wBoxBeingHeld], a
 	ld [wBoxInPlay], a
-	call UpdateBox					; immediately update it to not have the one frame delay
 	call SpawnBoxAtConveyor			; place down another box at the conveyor (validity checks are done in function)
 
 .EndOfFunc
@@ -868,7 +767,69 @@ UpdateBox:
 	add 24
 	ld [currentActiveBox_YPos], a
 
-	; Update the OAM, first calculate the offset needed
+.BoxNotBeingHeld
+	; check to see if player is within 8 pixels in both axis
+	; TODO: Implement
+.NoBox
+	ret
+
+; draw function where we actually update the OAM's to make sure it's at the start of the frame
+DrawPlayer:
+.UpdateOAM
+	; get OAM offset
+	ld a,  [mainCharacter_OAMOffset]	; get the offset from the start of OAM
+	ld h, 0
+	ld l, a								; load the offset into hl
+	ld bc, $FE00						; start of OAM memory
+	add hl, bc							; add the offset and the start of OAM together
+
+	call WaitNoMode3
+
+	ld a, [mainCharacter_YPos]
+	add 16							; make sure to set the sprite offsets
+	ld [hli], a
+	ld a, [mainCharacter_XPos]
+	add 8							; make sure to set the sprite offsets
+	ld [hli], a
+	
+	inc hl							; skip two memory locations as we're only updating positions
+	inc hl
+
+	ld a, [mainCharacter_YPos]
+	add 16							; then add the metasprite offset							; make sure to set the sprite offsets
+	ld [hli], a
+	ld a, [mainCharacter_XPos]
+	add 8							; make sure to set the sprite offsets
+	add 8							; then add the metasprite offset
+	ld [hli], a
+		
+	inc hl							; skip two memory locations as we're only updating positions
+	inc hl
+
+	ld a, [mainCharacter_YPos]
+	add 16							; make sure to set the sprite offsets
+	add 8							; then add the metasprite offset
+	ld [hli], a
+	ld a, [mainCharacter_XPos]
+	add 8							; make sure to set the sprite offsets
+	ld [hli], a
+		
+	inc hl							; skip two memory locations as we're only updating positions
+	inc hl
+
+	ld a, [mainCharacter_YPos]
+	add 16							; make sure to set the sprite offsets
+	add 8							; then add the metasprite offset
+	ld [hli], a
+	ld a, [mainCharacter_XPos]
+	add 8							; make sure to set the sprite offsets
+	add 8							; then add the metasprite offset
+	ld [hli], a
+.UpdateOAMFinished
+	ret
+; draw function for the box object
+DrawBoxObject:
+	; initialise the OAM
 	ld hl, _OAMRAM				; grab the address for the top of the OAM
 	ld a, [currentActiveBox_OAMOffset]
 	ld b, a
@@ -876,13 +837,38 @@ UpdateBox:
 	add b	; add the offset
 	ld l, a
 
+    call WaitNoMode3
+
 	ld a, [currentActiveBox_YPos]
 	ld [hli], a
 	ld a, [currentActiveBox_XPos]
 	ld [hli], a
+	ld a, [currentActiveBox_Tile]
+	ld [hli], a
+	ld a, %00000000
+	ld [hli], a
 
-.BoxNotBeingHeld
-	; check to see if player is within 8 pixels in both axis
-	; TODO: Implement
-.NoBox
+	ret
+
+; Cursor Draw function
+DrawCursorObject:
+	; initialise the OAM
+	ld hl, _OAMRAM				; grab the address for the top of the OAM
+	ld a, [boxCursor_OAMOffset]
+	ld b, a
+	ld a, l
+	add b	; add the offset
+	ld l, a
+
+	call WaitNoMode3
+
+	ld a, [boxCursor_YPos]
+	ld [hli], a
+	ld a, [boxCursor_XPos]
+	ld [hli], a
+	ld a, [boxCursor_Tile]
+	ld [hli], a
+	ld a, %00000000
+	ld [hli], a
+
 	ret

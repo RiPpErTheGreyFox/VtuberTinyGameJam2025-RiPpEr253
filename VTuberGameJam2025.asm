@@ -17,11 +17,9 @@ wNewKeys: db
 SECTION "Item Data", ROMX
 wTestText::  db "testing", 255
 SECTION "NumberStringData", WRAM0
-wNumberStringData: dw
-	:dw
-	:dw
-	:dw
-	:dw
+wNumberStringData: db
+	:db
+	:db
 
 SECTION "Gameplay Data", WRAM0
 wBoxInPlay: db							; treat as a bool
@@ -221,7 +219,6 @@ StartMenuEntry:							; main game loop
 	ld a, %00010001
 	ld [rOCPD], a
 
-
 .EndOfCGBPalette
 
 	; Initialise variables
@@ -279,13 +276,9 @@ StartMenuMain:
 	; tick the music driver for the frame
 	; call hUGE_dosound
 
-call UpdateButtonDebounce
-call UpdateKeys
-
-call UpdatePlayer
-
-call UpdateBox
-call UpdateCursor
+call DrawBoxObject
+call DrawCursorObject
+call DrawPlayer
 
 ; DEBUG update boxes remaining
 
@@ -296,6 +289,13 @@ call UpdateCursor
 	ld hl, wNumberStringData
 	ld de, $9800 + $10
 	call DrawTextTilesLoop
+
+
+call UpdateButtonDebounce
+call UpdateKeys
+call UpdatePlayer
+call UpdateBox
+call UpdateCursor
 
 .CheckBoxSpawn
 	ld a, [wCurKeys]

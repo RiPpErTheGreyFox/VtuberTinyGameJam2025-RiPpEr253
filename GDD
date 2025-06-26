@@ -111,8 +111,23 @@ Tuesday to-do:
 *	^Sprite that appears over the box about to be picked up
 *Spawn counter for the Conveyor
 *	^number rendering
-Upload this to Itch.io
+*Upload this to Itch.io
 End State Checking (shows victory on screen if all boxes placed in area with nothing adjacent and wrong)
+
+Thursday to-do:
+*Fix OAM timing bug
+*	^ Add a WaitNoMode2
+*		^ Already waits until out of mode 2
+Create scoring area algorithm
+	^ use constants to define the top/bottom/left/right of the scoring area
+		iterate through the tile map until finding a special crate, check the four directions and set a flag if non-matching special crates are found
+			Tilemap is 32 wide, so just offset 32 bytes forward and backward for up/down and 1 byte for forward/back
+Level 1 pass
+	^ making the scoring area smaller
+How to play page
+Direction flipping on the main character sprite, ready for art pass
+	^ animation handler added as well
+Overlay sprites showing why the level isn't complete
 
 Notes:
 Consider disabling diagonals
