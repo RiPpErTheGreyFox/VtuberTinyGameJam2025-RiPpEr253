@@ -21,6 +21,12 @@ wNumberStringData: db
 	:db
 	:db
 
+SECTION "BoxVictoryConditionRAMBlock", WRAM0
+wBoxTypeMemory: db						; need four bytes for temp storage in the victory condition area
+	:db
+	:db
+	:db
+
 SECTION "Gameplay Data", WRAM0
 wBoxInPlay: db							; treat as a bool
 wBoxBeingHeld: db						; bool
@@ -28,6 +34,7 @@ wBoxTileIndex: db						; starting tile index for the box graphics
 wBoxesRemainingInLevel: db				; the amount of boxes we need to spawn
 wBoxesRemainingFlammable: db			; the amount of flammable boxes left to spawn
 wBoxesRemainingRadioactive: db			; the amount of radioactive boxes left to spawn
+wVictoryFlagSet: db
 	dstruct PLAYER, mainCharacter		; declare our structs
 	dstruct BOX, currentActiveBox
 	dstruct CURSOR, boxCursor
@@ -280,6 +287,8 @@ call DrawBoxObject
 call DrawCursorObject
 call DrawPlayer
 
+call CheckForVictory
+
 ; DEBUG update boxes remaining
 
 	ld a, [wBoxesRemainingInLevel]
@@ -289,7 +298,6 @@ call DrawPlayer
 	ld hl, wNumberStringData
 	ld de, $9800 + $10
 	call DrawTextTilesLoop
-
 
 call UpdateButtonDebounce
 call UpdateKeys

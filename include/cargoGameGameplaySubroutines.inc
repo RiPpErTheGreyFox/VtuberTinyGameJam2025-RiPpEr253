@@ -7,6 +7,8 @@ SECTION "Gameplay Subroutines", ROM0
 
 InitialisePlayer:
 	; initialise player variables and load/define the tiles needed
+	ld a, 0
+	ld [wVictoryFlagSet], a
 	ld a, 32
 	ld [mainCharacter_XPos], a
 	ld [mainCharacter_XDestination], a
@@ -507,6 +509,147 @@ UpdateCursor:
 	call DisableCursor
 .FinishedDrawing
 	ret 
+
+; Traverse the tilemap starting at the first address (top left X/Y)
+; Store the current box count in D, current X loop position in b, Y in c
+CheckForVictory:
+	; check if there's any crates left to spawn
+	; TODO: implement
+	; set a box count (making sure all are in the box)
+	ld a, DEFAULT_LEVELONE_BOXCOUNT
+	ld d, a
+	; set an address to the first index in the tile map
+	ld b, DEFAULT_LEVELONE_SCOREAREA_TOP_X
+	ld c, DEFAULT_LEVELONE_SCOREAREA_TOP_Y
+	push bc
+	call GetTileAddressByIndex
+	;ld bc, 33								; lower the starting index by 32 and 1 to simplify both loops
+	dec hl									; lower the starting index by 1 to simplify the X loop
+	pop bc
+	; make an Y loop
+.LoopYStart
+	ld a, c
+	cp a, DEFAULT_LEVELONE_SCOREAREA_BOTTOM_Y + 1		; offset it by 1 so we can check the zero flag
+	jp z, .EndOfLoops
+	push hl
+		; make an X loop
+.LoopXStart
+		inc hl
+		inc b
+		; if tile is a box then check off box count
+		call WaitNoMode3
+		ld a, [hl]
+		; check the tile type (if it's special or not)
+		cp a, 127				; compare to 127, if > 127, carry bit will be not set
+		jp c, .NoBoxThere		; if carry bit not set, there's already a box there, jump out
+			dec d					; check a box off of the count
+			ld e, a
+			ld a, 0
+			cp a, d
+			jp nz, .NotAllBoxesPlaced
+			;Otherwise all boxes placed
+			ld a, 1
+			ld [wVictoryFlagSet], a	; if all boxes are placed in the zone, then set the victory flag to true
+									; will be set false if there's anything wrong later
+.NotAllBoxesPlaced
+			ld a, e					; restore the box type to the a register
+			cp a, 129				; compare to tile number 129 
+			jp c, .NoBoxThere		; if not Tile 129/130+ then it's a normal box and we don't have to check it
+			; if it's special then check the adjacent addresses to see if they've got special boxes
+			cp a, 129
+			jp z, .FlammableBoxDetected
+			cp a, 130
+			jp z, .RadioactiveBoxDetected
+.FlammableBoxDetected
+			; set the "wrong" box type in the A register
+			ld a, 130
+			jp .AdjacentCheck
+.RadioactiveBoxDetected
+			ld a, 129
+			jp .AdjacentCheck
+.AdjacentCheck
+			push hl
+			ld e, a
+			ld a, l
+			sub 32
+			ld l, a
+
+			push bc
+			push de
+			; grab all the four positions tiles into register so we can spend no time in mode 0-1
+			call WaitNoMode3
+			ld b, [hl]
+			ld a, l
+			add 31
+			ld l, a
+			ld c, [hl]
+			inc hl
+			inc hl
+			ld d, [hl]
+			ld a, l
+			add 31
+			ld l, a
+			ld e, [hl]
+			; end of VRAM reads
+			; load the 4 boxes to check into WRAM
+			ld hl, wBoxTypeMemory					; grab the address for the memory and load it up
+
+			ld [hl], b
+			inc hl
+			ld [hl], c
+			inc hl
+			ld [hl], d
+			inc hl
+			ld [hl], e
+
+			; now we have all the box types in memory
+
+			pop de									; grab the "wrong" box type off of the stack
+			ld hl, wBoxTypeMemory
+			ld a, [hli]								; iterate over the 4 bytes of memory to see if there's a fail condition
+			cp a, e
+			jp z, .WrongBox
+			ld a, [hli]								
+			cp a, e
+			jp z, .WrongBox
+			ld a, [hli]								
+			cp a, e
+			jp z, .WrongBox
+			ld a, [hl]								
+			cp a, e
+			jp z, .WrongBox
+			; else there's no wrong boxes
+			
+			jp .RestoreRegisters
+.WrongBox
+			ld a, 0									; load the no victory flag
+			ld [wVictoryFlagSet], a
+			jp .BreakLoop
+.RestoreRegisters
+			pop bc
+			pop hl
+.NoBoxThere
+	ld a, b
+	cp a, DEFAULT_LEVELONE_SCOREAREA_BOTTOM_X + 1		; offset it by 1 so we can check the zero flag
+	jp z, .LoopYIncrement
+	jp .LoopXStart
+	
+.LoopYIncrement
+	pop hl												; grab the memory address at the start of the last row
+	inc c												; increase the counter
+	ld b, DEFAULT_LEVELONE_SCOREAREA_TOP_X				; reset the X counter
+	push bc
+	ld bc, 32
+	add hl, bc
+	pop bc
+	jp .LoopYStart
+.BreakLoop
+	pop bc
+	pop hl
+	pop hl
+.EndOfLoops
+
+	ret
 
 ; show the cursor
 EnableCursor:

@@ -439,6 +439,28 @@ GetTileIndexByPixel:
 
 	ret
 
+; Convert an X/Y tile position to an address
+; @param b: X
+; @param c: Y
+; @return hl: address of Tile
+; @clobbers a
+GetTileAddressByIndex:
+	ld h, 0
+	ld l, c		; grab the Y index of the tile we're looking for
+	add hl, hl		; * 2
+	add hl, hl		; * 4
+	add hl, hl		; * 8
+	add hl, hl		; * 16
+	add hl, hl		; * 32
+
+	ld c, b
+	ld b, 0
+	add hl, bc		; now add the X offset to it
+	ld bc, $9800	; now add the tilemap address
+	add hl, bc
+	
+	ret
+
 ; Take a TileMap address, and convert it to the correct address for the "same" tile but in the ROM
 ; used to get the original tilemap in case it was changed
 ; @param c: LevelNumber
