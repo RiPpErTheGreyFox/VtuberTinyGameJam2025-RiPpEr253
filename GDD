@@ -129,6 +129,25 @@ Direction flipping on the main character sprite, ready for art pass
 	^ animation handler added as well
 Overlay sprites showing why the level isn't complete
 
+Friday to-do:
+*Get the placeholder scenes implemented: main menu, how to play, game, cutscene
+*	^ have the entry point easily chanagable
+*		make a main menu/how to play/game/cutscene load function as well as update functions
+*		have a variable that checks current scene and an update function that just calls the correct update
+		MainMenu/GameScene separation done, need to do the other two
+*Turn Level select into a variable
+Compose something in hUGETracker
+
+Saturday to-do:
+Fine tune some sound effects, compose something in huge tracker
+Implement the dialog typewriter effect
+Draw an art pass on the level
+Art pass on the little fella, make an animation handler
+
+Sunday to-do:
+use the art pass to design multiple levels and package it up
+	^needs updated game logic to use variables instead of macros
+
 Notes:
 Consider disabling diagonals
 *Check if both special crates added together >= remaining crates, if so, push temp crate type to top

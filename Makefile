@@ -25,7 +25,7 @@ all: 2bpp backgrounds tilemaps
 #	rgbasm -o SampleSong.o SampleSong.asm
 #	rgblink -o VTuberGameJam2025.gb VTuberGameJam2025.o hUGEDriver.o SampleSong.o
 	rgblink -m VTuberGameJam2025.map -n VTuberGameJam2025.sym -o VTuberGameJam2025.gb VTuberGameJam2025.o
-	rgbfix -c -j -l 0x33 -k "R2" -n 0x01 -s -t "VTuberGameJam2025" -v  -p 0xFF VTuberGameJam2025.gb
+	rgbfix -j -l 0x33 -k "R2" -n 0x01 -s -t "VTuberGameJam2025" -v  -p 0xFF VTuberGameJam2025.gb
 
 2bpp: $(2BPP_FILES)
 

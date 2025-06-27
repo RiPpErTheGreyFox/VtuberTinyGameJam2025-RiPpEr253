@@ -143,6 +143,20 @@ WaitFrames:
 	; above is waiting for a full complete frame
 	ret
 
+; clears the OAM memory area, make sure to call this outside Mode 2/3
+; @clobbers: a, b, hl
+ClearOAM:
+	; clear the OAM data in VRAM to ensure the screen isn't covered in garbage
+	; OAM is 40 sets of 4 bytes each, so clear 160 bytes to clear all of the OAM RAM
+	ld a, 0
+	ld b, 160
+	ld hl, _OAMRAM
+.ClearOAM:
+	ld [hli], a
+	dec b
+	jp nz, .ClearOAM
+	ret 
+
 ; Called on startup to determine the type of gameboy program is running on
 ; @clobbers: af, bc, de, hl
 SystemDetection:
@@ -292,6 +306,203 @@ TileLoader:
   	rr c
   	srl b
   	rr c
+	ret
+
+; sets the basic 4 shade palette on the background and both objects
+; @clobbers: a
+SetDefaultDMGPalette:
+	ld a, %11100100
+	ld [rBGP], a
+	ld a, %11100100
+	ld [rOBP0], a
+	ld [rOBP1], a
+	ret 
+
+; sets every colour in the DMG palette to be white
+SetBlankDMGPalette:
+	ld a, 0
+	ld [rBGP], a
+	ld [rOBP0], a
+	ld [rOBP1], a
+	ret
+
+; manipulates the DMG palette to fade in/out
+; stops updating the system while it happens
+; @param c: number of frames to wait between colour changes
+; @clobbers: a, b
+FadeToWhite:
+	dec c			; reduce the input by one as that's what the function expects
+	ld b, c
+	call WaitFrames
+	ld a, %11100100
+	ld [rBGP], a
+	ld a, %11100100
+	ld [rOBP0], a
+	ld [rOBP1], a
+	ld b, c
+	call WaitFrames
+	ld a, %10010000
+	ld [rBGP], a
+	ld a, %10010000
+	ld [rOBP0], a
+	ld [rOBP1], a
+	ld b, c
+	call WaitFrames
+	ld a, %01000000
+	ld [rBGP], a
+	ld a, %01000000
+	ld [rOBP0], a
+	ld [rOBP1], a
+	ld b, c
+	call WaitFrames
+	ld a, %00000000
+	ld [rBGP], a
+	ld a, %00000000
+	ld [rOBP0], a
+	ld [rOBP1], a
+	ret
+
+; manipulates the DMG palette to fade in/out
+; stops updating the system while it happens
+; @param c: number of frames to wait between colour changes
+; @clobbers: a, b
+FadeFromWhite:
+	dec c			; reduce the input by one as that's what the function expects
+	ld b, c
+	call WaitFrames
+	ld a, %00000000
+	ld [rBGP], a
+	ld a, %00000000
+	ld [rOBP0], a
+	ld [rOBP1], a
+	ld b, c
+	call WaitFrames
+	ld a, %01000000
+	ld [rBGP], a
+	ld a, %01000000
+	ld [rOBP0], a
+	ld [rOBP1], a
+	ld b, c
+	call WaitFrames
+	ld a, %10010000
+	ld [rBGP], a
+	ld a, %10010000
+	ld [rOBP0], a
+	ld [rOBP1], a
+	ld b, c
+	call WaitFrames
+	ld a, %11100100
+	ld [rBGP], a
+	ld a, %11100100
+	ld [rOBP0], a
+	ld [rOBP1], a
+	ret
+
+; Used for when using CGB mode, a default palette gets loaded here
+; clobbers: a
+LoadDefaultCGBPalette:
+	; Test for CGB palette manipulation
+	ld a, [wCGB]
+	cp a, 0
+	jp z, .EndOfCGBPalette
+
+	; Set the destination palette address
+	; first bit sets auto increment on write (successful or not)
+	ld a, %10000000
+	ld [rBCPS], a
+	; Write palette data in little endian, padding bit first
+	; format is RGB555
+	; BBBBB GGGGG RRRRR Pad bit
+	;FF FF FF
+	ld a, %11111111
+	ld [rBCPD], a
+	ld a, %11111111
+	ld [rBCPD], a
+	;20 20 20 ;Pad 10100 10100 10100
+	ld a, %10010100
+	ld [rBCPD], a
+	ld a, %01010010
+	ld [rBCPD], a
+	;10 10 10 ;Pad 01010 01010 01010
+	ld a, %01001010
+	ld [rBCPD], a
+	ld a, %00101001
+	ld [rBCPD], a
+	;00 00 00
+	ld a, %00000000
+	ld [rBCPD], a
+	ld a, %00000000
+	ld [rBCPD], a
+
+	; Do the same with the first object palette
+	ld a, %10000000
+	ld [rOCPS], a
+
+	ld a, %11111111
+	ld [rOCPD], a
+	ld a, %11111111
+	ld [rOCPD], a
+	;20 20 20 ;Pad 10100 10100 10100
+	ld a, %10010100
+	ld [rOCPD], a
+	ld a, %01010010
+	ld [rOCPD], a
+	;10 10 10 ;Pad 01010 01010 01010
+	ld a, %01001010
+	ld [rOCPD], a
+	ld a, %00101001
+	ld [rOCPD], a
+	;00 00 00
+	ld a, %00000000
+	ld [rOCPD], a
+	ld a, %00000000
+	ld [rOCPD], a
+	
+	;second object palette (player)
+
+	ld a, %11111111
+	ld [rOCPD], a
+	ld a, %11111111
+	ld [rOCPD], a
+	;19 27 27 blue ;Pad 11011 11011 10011  
+	ld a, %01110011
+	ld [rOCPD], a
+	ld a, %01101111
+	ld [rOCPD], a
+	;22 16 11 red ;Pad 01011 10000 10110  
+	ld a, %00010110
+	ld [rOCPD], a
+	ld a, %00101110
+	ld [rOCPD], a
+	;14 14 14 grey; Pad 01110 01110 01110
+	ld a, %11001110
+	ld [rOCPD], a
+	ld a, %00111001
+	ld [rOCPD], a
+
+	;third object palette (thrower)
+	
+	ld a, %11111111
+	ld [rOCPD], a
+	ld a, %11111111
+	ld [rOCPD], a
+	;25 21 14 flesh ;Pad 01110 10101 11001
+	ld a, %10111001
+	ld [rOCPD], a
+	ld a, %00111010
+	ld [rOCPD], a
+	;10 4 18 purple ;Pad 10010 00100 01010
+	ld a, %10001010
+	ld [rOCPD], a
+	ld a, %01001000
+	ld [rOCPD], a
+	;17 10 4 brown ; Pad 00100 01010 10001
+	ld a, %01010001
+	ld [rOCPD], a
+	ld a, %00010001
+	ld [rOCPD], a
+
+.EndOfCGBPalette
 	ret
 
 ; Interrupt handler for LCD Stat interrupt
@@ -520,9 +731,3 @@ UpdateKeys:
 	or a, $F0 ; A7-4 = 1: A3-0 = unpressed keys
 .knownret
 	ret
-
-EntryPoint:
-	call SystemDetection		; first thing to do is check what kind of system game's running on
-	call EnableSound
-	jp StartMenuEntry			; Jump to the main menu
-

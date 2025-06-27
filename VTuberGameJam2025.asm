@@ -3,6 +3,9 @@ INCLUDE "include/cargoGameStructs.inc"	; out of file definitions
 INCLUDE "include/cargoGameConstants.inc"
 INCLUDE "include/cargoGameUtilitySubroutines.inc"
 INCLUDE "include/cargoGameGameplaySubroutines.inc"
+INCLUDE "include/cargoGameMainMenuScene.inc"
+;INCLUDE "include/cargoGameHowToPlayScene.inc"
+;INCLUDE "include/cargoGameCutsceneScene.inc"
 INCLUDE "include/cargoGameSoundData.inc"
 
 ; gameplay definitions
@@ -39,6 +42,9 @@ wVictoryFlagSet: db
 	dstruct BOX, currentActiveBox
 	dstruct CURSOR, boxCursor
 
+wLevelSelected: db						
+wCurrentScene: db						; 0=MainMenu, 1=HowToPlay, 2=Cutscene, 3=Game
+
 SECTION "Animation Data", WRAM0
 wPlayerCurrentFrame: db
 
@@ -72,15 +78,29 @@ SECTION "Header", ROM0[$100]
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;	START MENU
+;;	MAIN PROGRAM
 ;;	BLOCK
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-StartMenuEntry:							; main game loop
+
+EntryPoint:
+	call SystemDetection		; first thing to do is check what kind of system game's running on
+	call EnableSound
+	ld a, 1
+	ld [wLevelSelected], a 
+	ld a, 0						; TODO: hardcoding the game scene
+	ld [wCurrentScene], a
+
+ReloadGame:
+	ld sp, $FFFE				; reset the stack pointer
+
+	jp ProgramEntry			; Jump to the main menu
+
+ProgramEntry:							; main game loop
 	; Wait until it's *not* VBlank
 	ld a, [rLY]			; loads into the A register, the current scanline (rLY)
 	cp 144				; compares the value in the A register, against 144
-	jp nc, StartMenuEntry; jump if carry not set (if a > 144)
+	jp nc, ProgramEntry; jump if carry not set (if a > 144)
 .WaitVBlank2:
 	ld a, [rLY]			; loads into the A register, the current scanline (rLY)
 	cp 144				; compares the value in the A register, against 144
@@ -95,147 +115,44 @@ StartMenuEntry:							; main game loop
 	; Turn the LCD off
 	ld a, 0
 	ld [rLCDC], a
-
-	; Copy tile data into VRAM
-	ld de, LevelOneTiles				; load the address of the tiles into the DE register
-	ld hl, $9000				; load the beginning VRAM address into HL (HL is easy to inc/dec)
-	ld bc, LevelOneTilesEnd - LevelOneTiles		; load the length of Tiles into BC
-	call Memcopy				; call the memcopy subroutine
-
-	; The above tile loading will clobber the tilemap in VRAM, but for now just load the other half of tiles
-
-	; Copy tilemap data into VRAM (functionally identical to above but pointing to tilemap data and addresses)
-	ld de, LevelOneTilemap
-	ld hl, $9800
-	ld bc, LevelOneTilemapEnd - LevelOneTilemap
-	call Memcopy				; call the memcopy subroutine
-
-	call TileLoaderReset
 	
-	; clear the OAM data in VRAM to ensure the screen isn't covered in garbage
-	; OAM is 40 sets of 4 bytes each, so clear 160 bytes to clear all of the OAM RAM
-	ld a, 0
-	ld b, 160
-	ld hl, _OAMRAM
-.ClearOAM:
-	ld [hli], a
-	dec b
-	jp nz, .ClearOAM
+	call ClearOAM
 
 	; once the OAM is clear, we can draw an object by writing its properties
-
-	; TODO: Remove test
-	; Test for CGB palette manipulation
-	ld a, [wCGB]
+	call SetDefaultDMGPalette
+	call LoadDefaultCGBPalette
+	
+	; check which scene is gunna be loaded and load that
+	; 0=MainMenu, 1=HowToPlay, 2=Cutscene, 3=Game
+	ld a, [wCurrentScene]
 	cp a, 0
-	jp z, .EndOfCGBPalette
-
-	; Set the destination palette address
-	; first bit sets auto increment on write (successful or not)
-	ld a, %10000000
-	ld [rBCPS], a
-	; Write palette data in little endian, padding bit first
-	; format is RGB555
-	; BBBBB GGGGG RRRRR Pad bit
-	;FF FF FF
-	ld a, %11111111
-	ld [rBCPD], a
-	ld a, %11111111
-	ld [rBCPD], a
-	;20 20 20 ;Pad 10100 10100 10100
-	ld a, %10010100
-	ld [rBCPD], a
-	ld a, %01010010
-	ld [rBCPD], a
-	;10 10 10 ;Pad 01010 01010 01010
-	ld a, %01001010
-	ld [rBCPD], a
-	ld a, %00101001
-	ld [rBCPD], a
-	;00 00 00
-	ld a, %00000000
-	ld [rBCPD], a
-	ld a, %00000000
-	ld [rBCPD], a
-
-	; Do the same with the first object palette
-	ld a, %10000000
-	ld [rOCPS], a
-
-	ld a, %11111111
-	ld [rOCPD], a
-	ld a, %11111111
-	ld [rOCPD], a
-	;20 20 20 ;Pad 10100 10100 10100
-	ld a, %10010100
-	ld [rOCPD], a
-	ld a, %01010010
-	ld [rOCPD], a
-	;10 10 10 ;Pad 01010 01010 01010
-	ld a, %01001010
-	ld [rOCPD], a
-	ld a, %00101001
-	ld [rOCPD], a
-	;00 00 00
-	ld a, %00000000
-	ld [rOCPD], a
-	ld a, %00000000
-	ld [rOCPD], a
+	jp z, .MainMenuLoading
 	
-	;second object palette (player)
-
-	ld a, %11111111
-	ld [rOCPD], a
-	ld a, %11111111
-	ld [rOCPD], a
-	;19 27 27 blue ;Pad 11011 11011 10011  
-	ld a, %01110011
-	ld [rOCPD], a
-	ld a, %01101111
-	ld [rOCPD], a
-	;22 16 11 red ;Pad 01011 10000 10110  
-	ld a, %00010110
-	ld [rOCPD], a
-	ld a, %00101110
-	ld [rOCPD], a
-	;14 14 14 grey; Pad 01110 01110 01110
-	ld a, %11001110
-	ld [rOCPD], a
-	ld a, %00111001
-	ld [rOCPD], a
-
-	;third object palette (thrower)
+	cp a, 1
+	jp z, .HowToPlayLoading
 	
-	ld a, %11111111
-	ld [rOCPD], a
-	ld a, %11111111
-	ld [rOCPD], a
-	;25 21 14 flesh ;Pad 01110 10101 11001
-	ld a, %10111001
-	ld [rOCPD], a
-	ld a, %00111010
-	ld [rOCPD], a
-	;10 4 18 purple ;Pad 10010 00100 01010
-	ld a, %10001010
-	ld [rOCPD], a
-	ld a, %01001000
-	ld [rOCPD], a
-	;17 10 4 brown ; Pad 00100 01010 10001
-	ld a, %01010001
-	ld [rOCPD], a
-	ld a, %00010001
-	ld [rOCPD], a
+	cp a, 2
+	jp z, .CutsceneLoading
+	
+	cp a, 3
+	jp z, .GameSceneLoading
 
-.EndOfCGBPalette
+.MainMenuLoading
+	call InitialiseMainMenu
+	jp .FinishedLoadingScene
+.HowToPlayLoading
+	;call InitialiseLevel
+	jp .FinishedLoadingScene
+.CutsceneLoading
+	;call InitialiseLevel
+	jp .FinishedLoadingScene
+.GameSceneLoading
+	call InitialiseLevel
+	jp .FinishedLoadingScene
+.FinishedLoadingScene
 
 	; Initialise variables
 	call DisableSound
-	call InitialisePlayer
-	call InitialiseBoxes
-	call InitialiseCursor
-	call InitialiseFont
-
-	call SpawnBoxAtConveyor
 
 	ld a, 0
 	ld [wButtonDebounce], a
@@ -243,37 +160,19 @@ StartMenuEntry:							; main game loop
 	; Turn the LCD on
 	ld a, LCDCF_ON | LCDCF_BGON	| LCDCF_OBJON | LCDCF_BG8800 ; OR together the desired flags for LCD control
 	ld [rLCDC], a				; then push them to the LCD controller
-
-	; During the first (blank) frame, set the palettes
-	ld a, %11100100
-	ld [rBGP], a
-	ld a, %11100100
-	ld [rOBP0], a
-	ld [rOBP1], a
+	
+	ld c, 15
+	call FadeFromWhite
 
 	; initialise the sound driver and start the song
 	; ld hl, sample_song
 	; call hUGE_init
 
-	; enable interrupt handling for the scanline interrupt
-
-	;ei ; enable global interrupts
-	; Interrupt Enable flags 7 = null, 6 = null, 5 = null, 4 = joypad, 3 = serial, 2 = timer, 1 = lcd, 0 = vblank
-	;ld a, IEF_STAT
-	;ld [rIE], a
-
-	; LCD Status flags (writing LY Coincidence interrupt)
-	;ld a, STATF_LYC
-	;ld [rSTAT], a
-
-	;ld a, 50
-	;ld [rLYC], a
-
-StartMenuMain:
+ProgramMain:
 	; Wait until it's *not* VBlank
 	ld a, [rLY]			; loads into the A register, the current scanline (rLY)
 	cp 144				; compares the value in the A register, against 144
-	jp nc, StartMenuMain			; jump if carry not set (if a > 144)
+	jp nc, ProgramMain			; jump if carry not set (if a > 144)
 .WaitVBlank2:
 	ld a, [rLY]			; loads into the A register, the current scanline (rLY)
 	cp 144				; compares the value in the A register, against 144
@@ -283,79 +182,36 @@ StartMenuMain:
 	; tick the music driver for the frame
 	; call hUGE_dosound
 
-call DrawBoxObject
-call DrawCursorObject
-call DrawPlayer
-
-call CheckForVictory
-
-; DEBUG update boxes remaining
-
-	ld a, [wBoxesRemainingInLevel]
-	ld hl, wNumberStringData
-	call NumberToString
-
-	ld hl, wNumberStringData
-	ld de, $9800 + $10
-	call DrawTextTilesLoop
-
-call UpdateButtonDebounce
-call UpdateKeys
-call UpdatePlayer
-call UpdateBox
-call UpdateCursor
-
-ld a, [wVictoryFlagSet]
-cp a, 1
-jp nz, .CheckBoxSpawn
-	ld hl, wVictoryString
-	ld de, $9800 + 96
-	call DrawTextTilesLoop
-
-.CheckBoxSpawn
-	ld a, [wCurKeys]
-	and a, PADF_A
-	jp nz, .BoxSpawn
-
-	;ld a, [wCurKeys]
-	;and a, PADF_B
-	;jp nz, .BoxDespawn
-
-	jp .CheckStartPressed
-
-.BoxSpawn
-	; check if Debounce done
-	call CheckButtonDebounce				; check the button debounce status
-	cp a, 1									; if a == 1, zero flag will set
-	jp z, .CheckStartPressed				; skip the button
-	call SetButtonDebounce					; otherwise debounce is clear and we can press the button
-	call PlaceBox							; make sure to set debounce ourselves
-	jp .CheckStartPressed
-.BoxDespawn
-	;call DisableBox
-.CheckStartPressed:
-	;ld a, [wCurKeys]
-	;and a, PADF_A
-	;jp nz, .StartPressed
+	; check which scene we're on and tick that
+	; 0=MainMenu, 1=HowToPlay, 2=Cutscene, 3=Game
+	ld a, [wCurrentScene]
+	cp a, 0
+	jp z, .MainMenuTick
 	
-	ld a, [wCurKeys]
-	and a, PADF_B
-	jp nz, .StartPressed
+	cp a, 1
+	jp z, .HowToPlayTick
 	
-	ld a, [wCurKeys]
-	and a, PADF_START
-	jp nz, .StartPressed
+	cp a, 2
+	jp z, .CutsceneTick
+	
+	cp a, 3
+	jp z, .GameSceneTick
 
-	jp StartMenuMain
-.StartPressed:
-	; Cycle sound to clear all playing sounds
-	call DisableSound
-	call EnableSound
-	ld b, 31					; wait a half second to insure against
-	;call WaitFrames				; double pressing
-	;jp MainGameStart
+.MainMenuTick
+	call UpdateMainMenuScene
+	jp .FinishedTickingScene
+.HowToPlayTick
+	call InitialiseLevel
+	jp .FinishedTickingScene
+.CutsceneTick
+	call InitialiseLevel
+	jp .FinishedTickingScene
+.GameSceneTick
+	call UpdateGameScene
+	jp .FinishedTickingScene
+.FinishedTickingScene
 
-jp StartMenuMain
+jp ProgramMain
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;	DATA
@@ -380,3 +236,8 @@ LevelOneTiles: INCBIN "gfx/backgrounds/Level1Background.2bpp"
 LevelOneTilesEnd:
 LevelOneTilemap:  INCBIN "gfx/backgrounds/Level1Background.tilemap"
 LevelOneTilemapEnd:
+
+MainMenuTiles: INCBIN "gfx/backgrounds/MainMenuBackground.2bpp"
+MainMenuTilesEnd:
+MainMenuTilemap:  INCBIN "gfx/backgrounds/MainMenuBackground.tilemap"
+MainMenuTilemapEnd:

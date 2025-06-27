@@ -435,6 +435,40 @@ UpdatePlayer:
 	;ld [rSCX], a
 	ret
 
+; loads the background, tilemap and sets up the rest of the game field
+; make sure the LCD is OFF
+; @clobbers a, bc, de, hl
+InitialiseLevel:
+	; Copy tile data into VRAM
+	ld de, LevelOneTiles				; load the address of the tiles into the DE register
+	ld hl, $9000				; load the beginning VRAM address into HL (HL is easy to inc/dec)
+	ld bc, LevelOneTilesEnd - LevelOneTiles		; load the length of Tiles into BC
+	call Memcopy				; call the memcopy subroutine
+
+	; The above tile loading will clobber the tilemap in VRAM, but for now just load the other half of tiles
+
+	; Copy tilemap data into VRAM (functionally identical to above but pointing to tilemap data and addresses)
+	ld de, LevelOneTilemap
+	ld hl, $9800
+	ld bc, LevelOneTilemapEnd - LevelOneTilemap
+	call Memcopy				; call the memcopy subroutine
+
+	call TileLoaderReset
+
+	call InitialisePlayer
+	call InitialiseBoxes
+	call InitialiseCursor
+	call InitialiseFont
+
+	call SpawnBoxAtConveyor
+
+	call SetBlankDMGPalette
+
+	; do a single tick as part of loading
+	call UpdateGameScene
+
+	ret
+
 ; call to load tiles and initialise variables
 InitialiseCursor:
 	; zero out everything
@@ -1027,5 +1061,82 @@ DrawCursorObject:
 	ld [hli], a
 	ld a, %00000000
 	ld [hli], a
+.EndOfFunc
+	ret
+
+; big game scene update function, put here to make it easier to separate out all the different scene types
+UpdateGameScene:
+call DrawBoxObject
+call DrawCursorObject
+call DrawPlayer
+
+call CheckForVictory
+
+; DEBUG update boxes remaining
+
+	ld a, [wBoxesRemainingInLevel]
+	ld hl, wNumberStringData
+	call NumberToString
+
+	ld hl, wNumberStringData
+	ld de, $9800 + $10
+	call DrawTextTilesLoop
+
+call UpdateButtonDebounce
+call UpdateKeys
+call UpdatePlayer
+call UpdateBox
+call UpdateCursor
+
+ld a, [wVictoryFlagSet]
+cp a, 1
+jp nz, .CheckBoxSpawn
+	ld hl, wVictoryString
+	ld de, $9800 + 96
+	call DrawTextTilesLoop
+
+.CheckBoxSpawn
+	ld a, [wCurKeys]
+	and a, PADF_A
+	jp nz, .BoxSpawn
+
+	;ld a, [wCurKeys]
+	;and a, PADF_B
+	;jp nz, .BoxDespawn
+
+	jp .CheckStartPressed
+
+.BoxSpawn
+	; check if Debounce done
+	call CheckButtonDebounce				; check the button debounce status
+	cp a, 1									; if a == 1, zero flag will set
+	jp z, .CheckStartPressed				; skip the button
+	call SetButtonDebounce					; otherwise debounce is clear and we can press the button
+	call PlaceBox							; make sure to set debounce ourselves
+	jp .CheckStartPressed
+.BoxDespawn
+	;call DisableBox
+.CheckStartPressed:
+	;ld a, [wCurKeys]
+	;and a, PADF_A
+	;jp nz, .StartPressed
+	
+	ld a, [wCurKeys]
+	and a, PADF_B
+	jp nz, .StartPressed
+	
+	ld a, [wCurKeys]
+	and a, PADF_START
+	jp nz, .StartPressed
+
+	jp .EndOfFunc
+.StartPressed:
+	; Cycle sound to clear all playing sounds
+	call DisableSound
+	call EnableSound
+	ld b, 31					; wait a half second to insure against
+	;call WaitFrames				; double pressing
+	;jp MainGameStart
+
 .EndOfFunc
 	ret
