@@ -4,8 +4,8 @@ INCLUDE "include/cargoGameConstants.inc"
 INCLUDE "include/cargoGameUtilitySubroutines.inc"
 INCLUDE "include/cargoGameGameplaySubroutines.inc"
 INCLUDE "include/cargoGameMainMenuScene.inc"
-;INCLUDE "include/cargoGameHowToPlayScene.inc"
-;INCLUDE "include/cargoGameCutsceneScene.inc"
+INCLUDE "include/cargoGameHowToPlayScene.inc"
+INCLUDE "include/cargoGameCutsceneScene.inc"
 INCLUDE "include/cargoGameSoundData.inc"
 
 ; gameplay definitions
@@ -43,7 +43,7 @@ wVictoryFlagSet: db
 	dstruct CURSOR, boxCursor
 
 wLevelSelected: db						
-wCurrentScene: db						; 0=MainMenu, 1=HowToPlay, 2=Cutscene, 3=Game
+wCurrentScene: db						; 0=MainMenu, 1=Cutscene, 2=HowToPlay, 3=Game
 
 SECTION "Animation Data", WRAM0
 wPlayerCurrentFrame: db
@@ -115,24 +115,27 @@ ProgramEntry:							; main game loop
 	; Turn the LCD off
 	ld a, 0
 	ld [rLCDC], a
+	ld [rSCY], a				; reset the scroll registers
+	ld [rSCX], a
 	
 	call ClearOAM
+
 
 	; once the OAM is clear, we can draw an object by writing its properties
 	call SetDefaultDMGPalette
 	call LoadDefaultCGBPalette
 	
 	; check which scene is gunna be loaded and load that
-	; 0=MainMenu, 1=HowToPlay, 2=Cutscene, 3=Game
+	; 0=MainMenu, 1=Cutscene, 2=HowToPlay, 3=Game
 	ld a, [wCurrentScene]
 	cp a, 0
 	jp z, .MainMenuLoading
 	
 	cp a, 1
-	jp z, .HowToPlayLoading
+	jp z, .CutsceneLoading
 	
 	cp a, 2
-	jp z, .CutsceneLoading
+	jp z, .HowToPlayLoading
 	
 	cp a, 3
 	jp z, .GameSceneLoading
@@ -140,11 +143,11 @@ ProgramEntry:							; main game loop
 .MainMenuLoading
 	call InitialiseMainMenu
 	jp .FinishedLoadingScene
-.HowToPlayLoading
-	;call InitialiseLevel
-	jp .FinishedLoadingScene
 .CutsceneLoading
-	;call InitialiseLevel
+	call InitialiseCutscene
+	jp .FinishedLoadingScene
+.HowToPlayLoading
+	call InitialiseHowToPlay
 	jp .FinishedLoadingScene
 .GameSceneLoading
 	call InitialiseLevel
@@ -152,7 +155,7 @@ ProgramEntry:							; main game loop
 .FinishedLoadingScene
 
 	; Initialise variables
-	call DisableSound
+	;call DisableSound
 
 	ld a, 0
 	ld [wButtonDebounce], a
@@ -161,12 +164,12 @@ ProgramEntry:							; main game loop
 	ld a, LCDCF_ON | LCDCF_BGON	| LCDCF_OBJON | LCDCF_BG8800 ; OR together the desired flags for LCD control
 	ld [rLCDC], a				; then push them to the LCD controller
 	
+	; initialise the sound driver and start the song
+	;ld hl, sample_song
+	;call hUGE_init
+
 	ld c, 15
 	call FadeFromWhite
-
-	; initialise the sound driver and start the song
-	; ld hl, sample_song
-	; call hUGE_init
 
 ProgramMain:
 	; Wait until it's *not* VBlank
@@ -179,20 +182,17 @@ ProgramMain:
 	jp c, .WaitVBlank2	; jump if carry set (if a < 144)
 	; above is waiting for a full complete frame
 
-	; tick the music driver for the frame
-	; call hUGE_dosound
-
 	; check which scene we're on and tick that
-	; 0=MainMenu, 1=HowToPlay, 2=Cutscene, 3=Game
+	; 0=MainMenu, 1=Cutscene, 2=HowToPlay, 3=Game
 	ld a, [wCurrentScene]
 	cp a, 0
 	jp z, .MainMenuTick
 	
 	cp a, 1
-	jp z, .HowToPlayTick
+	jp z, .CutsceneTick
 	
 	cp a, 2
-	jp z, .CutsceneTick
+	jp z, .HowToPlayTick
 	
 	cp a, 3
 	jp z, .GameSceneTick
@@ -200,16 +200,19 @@ ProgramMain:
 .MainMenuTick
 	call UpdateMainMenuScene
 	jp .FinishedTickingScene
-.HowToPlayTick
-	call InitialiseLevel
-	jp .FinishedTickingScene
 .CutsceneTick
-	call InitialiseLevel
+	call UpdateCutsceneScene
+	jp .FinishedTickingScene
+.HowToPlayTick
+	call UpdateHowToPlayScene
 	jp .FinishedTickingScene
 .GameSceneTick
 	call UpdateGameScene
 	jp .FinishedTickingScene
 .FinishedTickingScene
+
+	; tick the music driver for the frame
+	;call hUGE_dosound
 
 jp ProgramMain
 
@@ -229,6 +232,9 @@ CursorSpriteDataEnd:
 BoxesSpriteData: INCBIN "gfx/boxes.2bpp"
 BoxesSpriteDataEnd:
 
+ConveyorsSpriteData: INCBIN "gfx/Conveyors.2bpp"
+ConveyorsSpriteDataEnd:
+
 AlphabetTiles: INCBIN "gfx/backgrounds/text-font.2bpp"
 AlphabetTilesEnd:
 
@@ -236,6 +242,16 @@ LevelOneTiles: INCBIN "gfx/backgrounds/Level1Background.2bpp"
 LevelOneTilesEnd:
 LevelOneTilemap:  INCBIN "gfx/backgrounds/Level1Background.tilemap"
 LevelOneTilemapEnd:
+
+CutsceneTiles: INCBIN "gfx/backgrounds/Cutscene1.2bpp"
+CutsceneTilesEnd:
+CutsceneTilemap:  INCBIN "gfx/backgrounds/Cutscene1.tilemap"
+CutsceneTilemapEnd:
+
+HowToPlayTiles: INCBIN "gfx/backgrounds/HowToPlayBackground.2bpp"
+HowToPlayTilesEnd:
+HowToPlayTilemap:  INCBIN "gfx/backgrounds/HowToPlayBackground.tilemap"
+HowToPlayTilemapEnd:
 
 MainMenuTiles: INCBIN "gfx/backgrounds/MainMenuBackground.2bpp"
 MainMenuTilesEnd:

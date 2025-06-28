@@ -1,3 +1,13 @@
+SECTION "Gameplay Specific Variables", WRAM0
+
+wLevelBoxCount: db
+wLevelFlammableBoxCount: db
+wLevelRadioactiveBoxCount: db
+wLevelScoreAreaLeftX: db
+wLevelScoreAreaTopY: db
+wLevelScoreAreaRightX: db
+wLevelScoreAreaBottomY: db
+
 SECTION "Gameplay Subroutines", ROM0
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -439,6 +449,43 @@ UpdatePlayer:
 ; make sure the LCD is OFF
 ; @clobbers a, bc, de, hl
 InitialiseLevel:
+
+	call LoadLevelSpecificData
+	call TileLoaderReset
+
+	call InitialisePlayer
+	call InitialiseBoxes
+	call InitialiseCursor
+	call InitialiseFont
+
+	call SpawnBoxAtConveyor
+
+	call SetBlankDMGPalette
+
+	call InitialiseConveyorAnimation
+
+	; do a single tick as part of loading
+	call UpdateGameScene
+
+	ret
+
+
+; loads in anything that may change per level
+; needs the LCD off
+; @clobbers a, bc, de, hl
+LoadLevelSpecificData:
+	ld a, [wLevelSelected]
+
+	cp a, 1
+	jp z, .LevelOneLoad
+
+	cp a, 2
+	jp z, .LevelTwoLoad
+
+	cp a, 3
+	jp z, .LevelThreeLoad
+
+.LevelOneLoad
 	; Copy tile data into VRAM
 	ld de, LevelOneTiles				; load the address of the tiles into the DE register
 	ld hl, $9000				; load the beginning VRAM address into HL (HL is easy to inc/dec)
@@ -453,21 +500,113 @@ InitialiseLevel:
 	ld bc, LevelOneTilemapEnd - LevelOneTilemap
 	call Memcopy				; call the memcopy subroutine
 
-	call TileLoaderReset
+	; first load the tiles and tilemap into VRAM
+	; initialise the level specific variables
+	ld a, DEFAULT_LEVELONE_BOXCOUNT
+	ld [wLevelBoxCount], a
 
-	call InitialisePlayer
-	call InitialiseBoxes
-	call InitialiseCursor
-	call InitialiseFont
+	ld a, DEFAULT_LEVELONE_FLAMMABLE_BOXCOUNT
+	ld [wLevelFlammableBoxCount], a
 
-	call SpawnBoxAtConveyor
+	ld a, DEFAULT_LEVELONE_RADIOACTIVE_BOXCOUNT
+	ld [wLevelRadioactiveBoxCount], a
 
-	call SetBlankDMGPalette
+	ld a, DEFAULT_LEVELONE_SCOREAREA_TOP_X
+	ld [wLevelScoreAreaLeftX], a
 
-	; do a single tick as part of loading
-	call UpdateGameScene
+	ld a, DEFAULT_LEVELONE_SCOREAREA_TOP_Y
+	ld [wLevelScoreAreaTopY], a
 
-	ret
+	ld a, DEFAULT_LEVELONE_SCOREAREA_BOTTOM_X
+	ld [wLevelScoreAreaRightX], a
+
+	ld a, DEFAULT_LEVELONE_SCOREAREA_BOTTOM_Y
+	ld [wLevelScoreAreaBottomY], a
+
+	jp .EndOfFunc
+
+.LevelTwoLoad	
+	; Copy tile data into VRAM
+	ld de, LevelOneTiles				; load the address of the tiles into the DE register
+	ld hl, $9000				; load the beginning VRAM address into HL (HL is easy to inc/dec)
+	ld bc, LevelOneTilesEnd - LevelOneTiles		; load the length of Tiles into BC
+	call Memcopy				; call the memcopy subroutine
+
+	; The above tile loading will clobber the tilemap in VRAM, but for now just load the other half of tiles
+
+	; Copy tilemap data into VRAM (functionally identical to above but pointing to tilemap data and addresses)
+	ld de, LevelOneTilemap
+	ld hl, $9800
+	ld bc, LevelOneTilemapEnd - LevelOneTilemap
+	call Memcopy				; call the memcopy subroutine
+
+	; first load the tiles and tilemap into VRAM
+	; initialise the level specific variables
+	ld a, DEFAULT_LEVELTWO_BOXCOUNT
+	ld [wLevelBoxCount], a
+
+	ld a, DEFAULT_LEVELTWO_FLAMMABLE_BOXCOUNT
+	ld [wLevelFlammableBoxCount], a
+
+	ld a, DEFAULT_LEVELTWO_RADIOACTIVE_BOXCOUNT
+	ld [wLevelRadioactiveBoxCount], a
+
+	ld a, DEFAULT_LEVELTWO_SCOREAREA_TOP_X
+	ld [wLevelScoreAreaLeftX], a
+
+	ld a, DEFAULT_LEVELTWO_SCOREAREA_TOP_Y
+	ld [wLevelScoreAreaTopY], a
+
+	ld a, DEFAULT_LEVELTWO_SCOREAREA_BOTTOM_X
+	ld [wLevelScoreAreaRightX], a
+
+	ld a, DEFAULT_LEVELTWO_SCOREAREA_BOTTOM_Y
+	ld [wLevelScoreAreaBottomY], a
+
+	jp .EndOfFunc
+.LevelThreeLoad	
+	; Copy tile data into VRAM
+	ld de, LevelOneTiles				; load the address of the tiles into the DE register
+	ld hl, $9000				; load the beginning VRAM address into HL (HL is easy to inc/dec)
+	ld bc, LevelOneTilesEnd - LevelOneTiles		; load the length of Tiles into BC
+	call Memcopy				; call the memcopy subroutine
+
+	; The above tile loading will clobber the tilemap in VRAM, but for now just load the other half of tiles
+
+	; Copy tilemap data into VRAM (functionally identical to above but pointing to tilemap data and addresses)
+	ld de, LevelOneTilemap
+	ld hl, $9800
+	ld bc, LevelOneTilemapEnd - LevelOneTilemap
+	call Memcopy				; call the memcopy subroutine
+
+	; first load the tiles and tilemap into VRAM
+	; initialise the level specific variables
+	ld a, DEFAULT_LEVELTHREE_BOXCOUNT
+	ld [wLevelBoxCount], a
+
+	ld a, DEFAULT_LEVELTHREE_FLAMMABLE_BOXCOUNT
+	ld [wLevelFlammableBoxCount], a
+
+	ld a, DEFAULT_LEVELTHREE_RADIOACTIVE_BOXCOUNT
+	ld [wLevelRadioactiveBoxCount], a
+
+	ld a, DEFAULT_LEVELTHREE_SCOREAREA_TOP_X
+	ld [wLevelScoreAreaLeftX], a
+
+	ld a, DEFAULT_LEVELTHREE_SCOREAREA_TOP_Y
+	ld [wLevelScoreAreaTopY], a
+
+	ld a, DEFAULT_LEVELTHREE_SCOREAREA_BOTTOM_X
+	ld [wLevelScoreAreaRightX], a
+
+	ld a, DEFAULT_LEVELTHREE_SCOREAREA_BOTTOM_Y
+	ld [wLevelScoreAreaBottomY], a
+
+	jp .EndOfFunc
+
+.EndOfFunc
+	ret 
+
 
 ; call to load tiles and initialise variables
 InitialiseCursor:
@@ -546,17 +685,69 @@ UpdateCursor:
 .FinishedDrawing
 	ret 
 
+; Loads the tiles needed for the conveyor animation in
+InitialiseConveyorAnimation:
+	; Copy tile data into VRAM
+	ld de, ConveyorsSpriteData				; load the address of the tiles into the DE register
+	ld hl, $97C0				; load the beginning VRAM address into HL (HL is easy to inc/dec)
+	ld bc, ConveyorsSpriteDataEnd - ConveyorsSpriteData		; load the length of Tiles into BC
+	call Memcopy				; call the memcopy subroutine
+
+	ld a, 0
+	ld [wFrameCounter], a
+
+	ret
+
+; a hardcoded animation update that takes specific X/Y tiles in the map and swaps them around
+UpdateConveyoranimation:
+	; check the frame counter
+	ld a, [wFrameCounter]
+	; if above CONVEYOR_BELT_ANIMATION_SPEED, reset it and swap the tiles
+	cp a, CONVEYOR_BELT_ANIMATION_SPEED
+	jp nc, .TimeToSwap
+	inc a
+	ld [wFrameCounter], a
+	jp .EndOfFunc
+
+.TimeToSwap
+	ld a, 0
+	ld [wFrameCounter], a
+
+	call WaitNoMode3
+	ld a, [$9900]			
+	; check the tile ID and if it matches the first tile in the set
+	cp a, 124
+	jp z, .SecondFrame
+.FirstFrame
+	call WaitNoMode3
+	ld hl, $9900
+	ld [hl], 124
+	inc hl
+	ld [hl], 125
+	jp .EndOfFunc
+	; load in the first and second tiles
+.SecondFrame
+	call WaitNoMode3
+	ld hl, $9900
+	ld [hl], 126
+	inc hl
+	ld [hl], 127
+	; load in the third and fourth tiles
+.EndOfFunc
+	ret
+
 ; Traverse the tilemap starting at the first address (top left X/Y)
 ; Store the current box count in D, current X loop position in b, Y in c
 CheckForVictory:
 	; check if there's any crates left to spawn
-	; TODO: implement
 	; set a box count (making sure all are in the box)
-	ld a, DEFAULT_LEVELONE_BOXCOUNT
+	ld a, [wLevelBoxCount]
 	ld d, a
 	; set an address to the first index in the tile map
-	ld b, DEFAULT_LEVELONE_SCOREAREA_TOP_X
-	ld c, DEFAULT_LEVELONE_SCOREAREA_TOP_Y
+	ld a, [wLevelScoreAreaLeftX]
+	ld b, a
+	ld a, [wLevelScoreAreaTopY]
+	ld c, a
 	push bc
 	call GetTileAddressByIndex
 	;ld bc, 33								; lower the starting index by 32 and 1 to simplify both loops
@@ -564,8 +755,11 @@ CheckForVictory:
 	pop bc
 	; make an Y loop
 .LoopYStart
+	ld a, [wLevelScoreAreaBottomY]
+	inc a
+	ld e, a
 	ld a, c
-	cp a, DEFAULT_LEVELONE_SCOREAREA_BOTTOM_Y + 1		; offset it by 1 so we can check the zero flag
+	cp a, e		; offset it by 1 so we can check the zero flag
 	jp z, .EndOfLoops
 	push hl
 		; make an X loop
@@ -665,15 +859,19 @@ CheckForVictory:
 			pop bc
 			pop hl
 .NoBoxThere
+	ld a, [wLevelScoreAreaRightX]
+	inc a
+	ld e, a
 	ld a, b
-	cp a, DEFAULT_LEVELONE_SCOREAREA_BOTTOM_X + 1		; offset it by 1 so we can check the zero flag
+	cp a, e		; offset it by 1 so we can check the zero flag
 	jp z, .LoopYIncrement
 	jp .LoopXStart
 	
 .LoopYIncrement
 	pop hl												; grab the memory address at the start of the last row
 	inc c												; increase the counter
-	ld b, DEFAULT_LEVELONE_SCOREAREA_TOP_X				; reset the X counter
+	ld a, [wLevelScoreAreaLeftX]						; reset the X counter
+	ld b, a
 	push bc
 	ld bc, 32
 	add hl, bc
@@ -731,11 +929,11 @@ InitialiseBoxes:
 
 	; set the counters based on level
 	; TODO: make this based on level
-	ld a, DEFAULT_LEVELONE_BOXCOUNT
+	ld a, [wLevelBoxCount]
 	ld [wBoxesRemainingInLevel], a 
-	ld a, DEFAULT_LEVELONE_FLAMMABLE_BOXCOUNT
+	ld a, [wLevelFlammableBoxCount]
 	ld [wBoxesRemainingFlammable], a
-	ld a, DEFAULT_LEVELONE_RADIOACTIVE_BOXCOUNT
+	ld a, [wLevelRadioactiveBoxCount]
 	ld [wBoxesRemainingRadioactive], a
 
 	ret
@@ -1082,6 +1280,7 @@ call CheckForVictory
 	ld de, $9800 + $10
 	call DrawTextTilesLoop
 
+call UpdateConveyoranimation
 call UpdateButtonDebounce
 call UpdateKeys
 call UpdatePlayer
@@ -1094,6 +1293,18 @@ jp nz, .CheckBoxSpawn
 	ld hl, wVictoryString
 	ld de, $9800 + 96
 	call DrawTextTilesLoop
+	
+	ld a, [wLevelSelected]						; increase the level counter
+	inc a
+	ld [wLevelSelected], a
+
+	; give a 2 second wait time
+	ld b, 120
+	call WaitFrames
+
+	call FadeToWhite
+
+	call ReloadGame
 
 .CheckBoxSpawn
 	ld a, [wCurKeys]

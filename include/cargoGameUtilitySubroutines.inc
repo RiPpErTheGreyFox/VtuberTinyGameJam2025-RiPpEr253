@@ -105,6 +105,33 @@ DrawTextTilesLoop:
 	; move to the next character and next background tile
 	jp DrawTextTilesLoop
 
+; Draws text with a delay, giving a typewriter like effect
+; @param de: address of the first tile to start writing to
+; @param hl: pointer to the address containing the literal string
+; @clobbers a
+DrawTextTilesWithDelays:
+	ld b, 2				; wait for a few frames in between drawing text
+	call WaitFrames
+	; check for the end of string character (255/$FF)
+	ld a, [hl]
+	cp 255
+	ret z
+
+	; write the current character (in hl) to the address
+	; on the tilemap (in de)
+	ld a, [wFontFirstTileOffset]
+	ld b, a
+	ld a, [hl]
+	add b
+	call WaitNoMode3
+	ld [de], a
+
+	inc hl
+	inc de
+
+	jp DrawTextTilesWithDelays
+
+
 ; Takes the number in the A register, turns it into BCD and outputs a string to hl
 ; @param a: the number to turn into a string
 ; @param hl: memory address of the block of RAM to output the string to
@@ -125,7 +152,7 @@ NumberToString:
     ret
 
 ; Wait for specified number of frames
-; @param b: Number of frames to wait + 1
+; @param b: Number of frames to wait, gets dec'd at the start so add 1 to the input of param
 ; @clobbers: a
 WaitFrames:
 	dec b

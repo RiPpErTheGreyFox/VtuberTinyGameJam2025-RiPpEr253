@@ -59,7 +59,7 @@ Create metasprites/animations and handler for them
 *Scrollable screen proof of concept
 *Programmer Art for player, three box types, background
 *Create a top-down player controller
-	^needs functions for collision detection, *updates, *does it's own key checking
+*	^needs functions for collision detection, *updates, *does it's own key checking
 *Proof of concept for picking up and dropping boxes (converting from background tile to sprite back to background)
 *	^needs a function for converting an object to a background tile
 *Going to need to load box tiles into middle of VRAM
@@ -75,7 +75,7 @@ Needed for MVP:
 *scrollable level 1
 *^ proven it can be done, will make level 2/3 scrollable
 *boxes that are placable
-a "scoring" area for the boxes
+*a "scoring" area for the boxes
 *a conveyor belt that distributes the boxes in a random order (always set boxes for a level, just different order)
 *two different types of hazardous box (explosive and radioactive)
 *placeholder graphics for the two boxes, conveyor belt, level and player 
@@ -112,18 +112,18 @@ Tuesday to-do:
 *Spawn counter for the Conveyor
 *	^number rendering
 *Upload this to Itch.io
-End State Checking (shows victory on screen if all boxes placed in area with nothing adjacent and wrong)
+*End State Checking (shows victory on screen if all boxes placed in area with nothing adjacent and wrong)
 
 Thursday to-do:
 *Fix OAM timing bug
 *	^ Add a WaitNoMode2
 *		^ Already waits until out of mode 2
-Create scoring area algorithm
+*Create scoring area algorithm
 	^ use constants to define the top/bottom/left/right of the scoring area
 		iterate through the tile map until finding a special crate, check the four directions and set a flag if non-matching special crates are found
 			Tilemap is 32 wide, so just offset 32 bytes forward and backward for up/down and 1 byte for forward/back
-Level 1 pass
-	^ making the scoring area smaller
+*Level 1 pass
+*	^ making the scoring area smaller
 How to play page
 Direction flipping on the main character sprite, ready for art pass
 	^ animation handler added as well
@@ -134,33 +134,48 @@ Friday to-do:
 *	^ have the entry point easily chanagable
 *		make a main menu/how to play/game/cutscene load function as well as update functions
 *		have a variable that checks current scene and an update function that just calls the correct update
-		MainMenu/GameScene separation done, need to do the other two
+*		MainMenu/GameScene separation done, need to do the other two
 *Turn Level select into a variable
-Compose something in hUGETracker
+-Compose something in hUGETracker
 
 Saturday to-do:
+*Implement the dialog typewriter effect
 Fine tune some sound effects, compose something in huge tracker
-Implement the dialog typewriter effect
-Draw an art pass on the level
+	^ three hours
+*Draw an art pass on the level
+*Animate the conveyor belt
 Art pass on the little fella, make an animation handler
+	^ two hours
 
 Sunday to-do:
+Finish the main menu graphics
+	^ one hour
+When other graphics are done, put examples in how to play slide
+	^ half hour
+Code in a page flip for the how to play
+	^ half hour
+Fix the cursor bug
+	^ ?
+Updated movement to have the first button press flip direction without moving
+	^ one hour
 use the art pass to design multiple levels and package it up
-	^needs updated game logic to use variables instead of macros
+	^ two hours
+		*^needs updated game logic to use variables instead of macros
+		*	^ one hour - took 30 minutes
 
 Notes:
 Consider disabling diagonals
 *Check if both special crates added together >= remaining crates, if so, push temp crate type to top
 
 Features that are polish:
-Refined graphics for the two boxes, conveyor belt, player and level
-Animated Conveyor Belt
-CGB support, SGB support
-Dialogue with characters
-Tiny story that continues
-Intro cutscene
-Inbetween level cutscenes
+*Refined graphics for the two boxes, conveyor belt, -player and level
+*Animated Conveyor Belt
+CGB support, SGB support		- dropped
+Dialogue with characters		- one hour
+Tiny story that continues		- two hours
+Intro cutscene					- one hour
+Inbetween level cutscenes		- one hour
 Level select
-More puzzles/levels
-CGB exclusive level?
-GBA Easter Egg
+More puzzles/levels				- dropped
+CGB exclusive level?			- dropped
+GBA Easter Egg					- dropped
