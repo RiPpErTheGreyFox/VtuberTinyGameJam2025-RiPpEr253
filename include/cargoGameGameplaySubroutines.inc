@@ -130,7 +130,7 @@ CheckCollisionAtXY:
 	call WaitNoMode3
 	
 	ld a, [hl]						; get the tile type at that address
-	cp a, 127						; compare to 127, if > 127, carry bit will be not set
+	cp a, 128						; compare to 127, if > 127, carry bit will be not set
 	jp nc, .Impassable				; if carry bit not set, there's already a box there, jump out
 
 	; redefine impassable tiles when doing the next art pass
@@ -279,7 +279,7 @@ UpdatePlayer:
 
 	ld a, [mainCharacter_YDestination]
 	; check for low Y clamp
-	cp a, 8
+	cp a, 24
 	jp c, .CheckDownPressed					; if Y is 8 or lower, just jump
 	; check if direction is already correct
 	ld e, a
@@ -305,7 +305,7 @@ UpdatePlayer:
 
 	ld a, [mainCharacter_YDestination]
 	; check for high Y clamp
-	cp a, 144 - 16
+	cp a, 144 - 24
 	jp nc, .CheckLeftPressed
 	; check if direction is already correct
 	ld e, a
@@ -331,7 +331,7 @@ UpdatePlayer:
 
 	ld a, [mainCharacter_XDestination]
 	; check for low X clamp
-	cp a, 8
+	cp a, 16
 	jp c, .CheckRightPressed				; if Y is 8 or lower, just jump
 	; check if direction is already correct
 	ld e, a
@@ -357,7 +357,7 @@ UpdatePlayer:
 
 	ld a, [mainCharacter_XDestination]
 	; check for high X clamp
-	cp a, 160 - 16
+	cp a, 160 - 24
 	jp nc, .KeyCheckFinished
 	; check if direction is already correct
 	ld e, a
@@ -835,7 +835,7 @@ UpdateCursor:
 	; check if there's a box in hand, or if there's a box in front of us
 	call WaitNoMode3
 	ld a, [hl]						; get the tile type at that address
-	cp a, 127						; compare to 127, if > 127, carry bit will not be set
+	cp a, 128						; compare to 127, if > 127, carry bit will not be set
 	jp nc, .EnableCursor				; if carry bit set, jump to pick up box
 
 	ld a, [wBoxBeingHeld]
@@ -955,7 +955,7 @@ CheckForVictory:
 		call WaitNoMode3
 		ld a, [hl]
 		; check the tile type (if it's special or not)
-		cp a, 127				; compare to 127, if > 127, carry bit will be not set
+		cp a, 128				; compare to 127, if > 127, carry bit will be not set
 		jp c, .NoBoxThere		; if carry bit not set, there's already a box there, jump out
 			dec d					; check a box off of the count
 			ld e, a
@@ -1133,7 +1133,7 @@ SpawnBoxAtConveyor:
 	call WaitNoMode3
 	
 	ld a, [hl]						; get the tile type at that address
-	cp a, 127						; compare to 127, if > 127, carry bit will be not set
+	cp a, 128						; compare to 127, if > 127, carry bit will be not set
 	jp nc, .EndOfFunc				; if carry bit not set, there's already a box there, jump out
 
 	; check to see if we have any boxes remaining to spawn
@@ -1260,7 +1260,7 @@ PlaceBox:
 	; check if the tile index is above 128, if so then 
 	; check if there's a box in hand, if not, then pick up the box instead
 	ld a, [hl]						; get the tile type at that address
-	cp a, 127						; compare to 127, if > 127, carry bit will not be set
+	cp a, 128						; compare to 127, if > 127, carry bit will not be set
 	jp nc, .PickUpBox				; if carry bit not set, jump to pick up box
 .PutDownBox
 	; check if we're holding a box, if we're not, then don't put anything down
@@ -1282,6 +1282,7 @@ PlaceBox:
 	jp .EndOfFunc
 	; otherwise if there is a box already there
 .PickUpBox
+	; check if the box isn't
 	; check if box is in hand, if not then pick it up, otherwise play an error
 	ld a, [wBoxBeingHeld]
 	cp a, 0
