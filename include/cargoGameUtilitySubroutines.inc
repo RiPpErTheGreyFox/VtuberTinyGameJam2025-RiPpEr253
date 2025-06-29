@@ -667,6 +667,12 @@ SetButtonDebounce:
 	ld a, DEFAULT_DEBOUNCE_FRAMES
 	ld [wButtonDebounce], a
 	ret
+
+; Sets the button debounce timer to the argument
+SetButtonDebounceRegA:
+	ld [wButtonDebounce], a
+	ret
+	
 ; Returns a = 1 if the debounce isn't cleared
 ; @return a: 1 if debounce still happening, otherwise 0
 CheckButtonDebounce:

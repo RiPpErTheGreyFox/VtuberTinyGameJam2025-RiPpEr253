@@ -262,7 +262,13 @@ UpdatePlayer:
 	jp nz, .KeyCheckFinished
 	ld a, 1
 	ld [mainCharacter_AllowMove], a
+	; check if debounce is active
+	call CheckButtonDebounce
+	cp a, 0									; check if debounce is still running
+	jp z, .CheckMoveFlag
+	jp .KeyCheckFinished
 
+.CheckMoveFlag
 	ld a,[mainCharacter_AllowMove]			; check if we're allowed to accept a new destination
 	cp a, 1									; allowMove == 1 means accept new input
 	jp nz, .KeyCheckFinished				; otherwise just skip movement input
@@ -275,12 +281,22 @@ UpdatePlayer:
 	; check for low Y clamp
 	cp a, 8
 	jp c, .CheckDownPressed					; if Y is 8 or lower, just jump
+	; check if direction is already correct
+	ld e, a
+	ld a, [mainCharacter_Direction]
+	cp a, 0
+	ld a, e
+	jp nz, .SetDirectionUp
 	sub 8
 	ld [mainCharacter_YDestination], a
 	ld a, 0
-	ld [mainCharacter_Direction], a
-	ld a, 0
 	ld [mainCharacter_AllowMove], a
+	jp .CheckDownPressed
+.SetDirectionUp
+	ld a, 0
+	ld [mainCharacter_Direction], a
+	ld a, 5
+	call SetButtonDebounceRegA
 
 .CheckDownPressed
 	ld a, [wCurKeys]
@@ -291,12 +307,22 @@ UpdatePlayer:
 	; check for high Y clamp
 	cp a, 144 - 16
 	jp nc, .CheckLeftPressed
+	; check if direction is already correct
+	ld e, a
+	ld a, [mainCharacter_Direction]
+	cp a, 2
+	ld a, e
+	jp nz, .SetDirectionDown
 	add 8
 	ld [mainCharacter_YDestination], a
-	ld a, 2
-	ld [mainCharacter_Direction], a
 	ld a, 0
 	ld [mainCharacter_AllowMove], a
+	jp .CheckLeftPressed
+.SetDirectionDown
+	ld a, 2
+	ld [mainCharacter_Direction], a
+	ld a, 5
+	call SetButtonDebounceRegA
 
 .CheckLeftPressed
 	ld a, [wCurKeys]
@@ -307,12 +333,22 @@ UpdatePlayer:
 	; check for low X clamp
 	cp a, 8
 	jp c, .CheckRightPressed				; if Y is 8 or lower, just jump
+	; check if direction is already correct
+	ld e, a
+	ld a, [mainCharacter_Direction]
+	cp a, 3
+	ld a, e
+	jp nz, .SetDirectionLeft
 	sub 8
 	ld [mainCharacter_XDestination], a
-	ld a, 3
-	ld [mainCharacter_Direction], a
 	ld a, 0
 	ld [mainCharacter_AllowMove], a
+	jp .CheckRightPressed
+.SetDirectionLeft
+	ld a, 3
+	ld [mainCharacter_Direction], a
+	ld a, 5
+	call SetButtonDebounceRegA
 
 .CheckRightPressed
 	ld a, [wCurKeys]
@@ -323,12 +359,22 @@ UpdatePlayer:
 	; check for high X clamp
 	cp a, 160 - 16
 	jp nc, .KeyCheckFinished
+	; check if direction is already correct
+	ld e, a
+	ld a, [mainCharacter_Direction]
+	cp a, 1
+	ld a, e
+	jp nz, .SetDirectionRight
 	add 8
 	ld [mainCharacter_XDestination], a
-	ld a, 1
-	ld [mainCharacter_Direction], a
 	ld a, 0
 	ld [mainCharacter_AllowMove], a
+	jp .KeyCheckFinished
+.SetDirectionRight
+	ld a, 1
+	ld [mainCharacter_Direction], a
+	ld a, 5
+	call SetButtonDebounceRegA
 
 .KeyCheckFinished
 
