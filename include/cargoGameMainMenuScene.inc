@@ -29,9 +29,17 @@ InitialiseMainMenu:
 	ld [wYScrollCounter], a
 	ld [rSCY], a
 
+		
+	; initialise the sound driver and start the song
+	ld hl, mainmenu_song
+	call hUGE_init
+
 	ret
 
 UpdateMainMenuScene:
+	
+	; tick the music driver for the frame
+	call hUGE_dosound
 
 	; check if the scroll counter is above zero, if it is, scroll up 1
 	ld a, [wYScrollCounter]
@@ -49,6 +57,8 @@ UpdateMainMenuScene:
 .StartGame
     ld a, 1
     ld [wCurrentScene], a
+	call DisableSound
+	call EnableSound
     ld c, 10
     call FadeToWhite
     jp ReloadGame

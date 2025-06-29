@@ -161,10 +161,6 @@ ProgramEntry:							; main game loop
 	ld [wButtonDebounce], a
 
 	call EnableLCD
-	
-	; initialise the sound driver and start the song
-	;ld hl, sample_song
-	;call hUGE_init
 
 	ld c, 15
 	call FadeFromWhite
@@ -209,8 +205,6 @@ ProgramMain:
 	jp .FinishedTickingScene
 .FinishedTickingScene
 
-	; tick the music driver for the frame
-	; call hUGE_dosound
 
 jp ProgramMain
 
