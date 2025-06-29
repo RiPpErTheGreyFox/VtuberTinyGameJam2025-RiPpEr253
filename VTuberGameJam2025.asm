@@ -88,7 +88,7 @@ EntryPoint:
 	call EnableSound
 	ld a, 1
 	ld [wLevelSelected], a 
-	ld a, 3 
+	ld a, 0 
 	ld [wCurrentScene], a
 
 ReloadGame:
