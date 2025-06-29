@@ -19,6 +19,7 @@ INCLUDE "include/structs.inc"
         bytes 1, TileBR ; 1 byte
         bytes 1, Direction ; 1 byte
         bytes 1, OAMOffset ; 1 byte which OAM object this will be using to draw to
+        bytes 1, TileFlags ; 1 byte used to store the OAM flags
         bytes 1, AllowMove ; 1 byte treat as a bool
     end_struct
 

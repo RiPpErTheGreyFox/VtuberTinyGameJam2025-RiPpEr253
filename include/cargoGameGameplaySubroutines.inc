@@ -8,6 +8,15 @@ wLevelScoreAreaTopY: db
 wLevelScoreAreaRightX: db
 wLevelScoreAreaBottomY: db
 
+SECTION "Animation Variables", WRAM0
+wPlayerAnimationCounter: db				; counts frames before next frame of animation
+wPlayerAnimationCurrentFrame: db		; keeps track of the current frame
+wPlayerTileTLOffsetX: db
+wPlayerTileTROffsetX: db
+wPlayerTileBLOffsetX: db
+wPlayerTileBROffsetX: db
+wPlayerFlipped: db
+
 SECTION "Gameplay Subroutines", ROM0
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -27,10 +36,20 @@ InitialisePlayer:
 	ld [mainCharacter_YDestination], a
 	ld a, 0
 	ld [mainCharacter_Direction], a
+	ld [mainCharacter_TileFlags], a
 	ld a, 128
 	ld [mainCharacter_OAMOffset], a
 	ld a, 1
 	ld [mainCharacter_AllowMove], a
+
+	; initialise animation variables
+	ld a, 0
+	ld [wPlayerAnimationCounter], a
+	ld [wPlayerAnimationCurrentFrame], a
+	ld [wPlayerFlipped], a
+
+	call UpdatePlayerFlipped
+	
 
 	ld de, PlayerSpriteData
 	ld bc, PlayerSpriteDataEnd - PlayerSpriteData
@@ -429,20 +448,114 @@ UpdatePlayer:
 	ld [mainCharacter_YDestination], a
 
 .FinishCollisionChecks
-; 	snap to a grid tests
-;	ld a, [mainCharacter_XPos]
-;	and %11111000
-;	ld [mainCharacter_XPos], a
+	ld a, [mainCharacter_AllowMove]
+	cp a, 1
+	jp z, .EndOfFunc						; if we're not allowed to move, assume we're moving
+	call UpdatePlayerAnimation				; only call player animation update when moving
+.EndOfFunc
+	call UpdatePlayerFlipped
+	ret
 
-;	ld a, [mainCharacter_YPos]
-;	and %11111000
-;	ld [mainCharacter_YPos], a
+; keeps track of the animation counter and updates the tile references needed
+; @clobbers a
+UpdatePlayerAnimation:
+		; check the frame counter
+	ld a, [wPlayerAnimationCounter]
+	; if above CONVEYOR_BELT_ANIMATION_SPEED, reset it and swap the tiles
+	cp a, PLAYER_ANIMATION_SPEED
+	jp nc, .TimeToSwap
+	inc a
+	ld [wPlayerAnimationCounter], a
+	jp .EndOfFunc
 
-	; screen scroll tests
-	;ld a, [mainCharacter_YPos]
-	;ld [rSCY], a
-	;ld a, [mainCharacter_XPos]
-	;ld [rSCX], a
+.TimeToSwap
+	ld a, 0
+	ld [wPlayerAnimationCounter], a
+
+	ld a, [wPlayerAnimationCurrentFrame]		
+	; check the tile ID and if it matches the first tile in the set
+	cp a, 0
+	jp nz, .SecondFrame
+.FirstFrame
+	ld a, PLAYER_TL_FRAME1_TILE
+	ld [mainCharacter_TileTL], a
+	ld a, PLAYER_TR_FRAME1_TILE
+	ld [mainCharacter_TileTR], a
+	ld a, PLAYER_BL_FRAME1_TILE
+	ld [mainCharacter_TileBL], a
+	ld a, PLAYER_BR_FRAME1_TILE
+	ld [mainCharacter_TileBR], a
+	ld a, 1
+	ld [wPlayerAnimationCurrentFrame], a
+	jp .EndOfFunc
+	; load in the first set of tiles
+.SecondFrame
+	ld a, PLAYER_TL_FRAME2_TILE
+	ld [mainCharacter_TileTL], a
+	ld a, PLAYER_TR_FRAME2_TILE
+	ld [mainCharacter_TileTR], a
+	ld a, PLAYER_BL_FRAME2_TILE
+	ld [mainCharacter_TileBL], a
+	ld a, PLAYER_BR_FRAME2_TILE
+	ld [mainCharacter_TileBR], a
+	ld a, 0
+	ld [wPlayerAnimationCurrentFrame], a
+	jp .EndOfFunc
+	; load in the second set of tiles
+.EndOfFunc
+	ret
+
+; sets up all the flags and offsets to set up if we're flipped or not
+UpdatePlayerFlipped:
+	; do direction based checking 0 = N, 1 = E, 2 = S, 3 = W
+	ld a, [mainCharacter_Direction]
+	cp a, 1
+	jp z, .EastFlip
+	cp a, 3
+	jp z, .WestFlip
+	jp .FlipCheck
+
+.EastFlip
+	ld a, 1
+	ld [wPlayerFlipped], a
+	jp .FlipCheck
+
+.WestFlip
+	ld a, 0
+	ld [wPlayerFlipped], a
+
+	; now check if the player flipped tag is set
+.FlipCheck
+	ld a, [wPlayerFlipped]
+	cp a, 1
+	jp z, .FacingRight			; if flipped, then facing right, otherwise is facing left
+
+.FacingLeft
+	ld a, PLAYER_TL_NORM_X_OFFSET
+	ld [wPlayerTileTLOffsetX], a
+	ld a, PLAYER_TR_NORM_X_OFFSET
+	ld [wPlayerTileTROffsetX], a
+	ld a, PLAYER_BL_NORM_X_OFFSET
+	ld [wPlayerTileBLOffsetX], a
+	ld a, PLAYER_BR_NORM_X_OFFSET
+	ld [wPlayerTileBROffsetX], a
+	ld a, %00000000
+	ld [mainCharacter_TileFlags], a
+	jp .EndOfFunc
+.FacingRight
+	ld a, PLAYER_TL_FLIP_X_OFFSET
+	ld [wPlayerTileTLOffsetX], a
+	ld a, PLAYER_TR_FLIP_X_OFFSET
+	ld [wPlayerTileTROffsetX], a
+	ld a, PLAYER_BL_FLIP_X_OFFSET
+	ld [wPlayerTileBLOffsetX], a
+	ld a, PLAYER_BR_FLIP_X_OFFSET
+	ld [wPlayerTileBROffsetX], a
+	ld a, %00100000
+	ld [mainCharacter_TileFlags], a
+	jp .EndOfFunc
+
+.EndOfFunc
 	ret
 
 ; loads the background, tilemap and sets up the rest of the game field
@@ -649,6 +762,7 @@ UpdateCursor:
 	pop bc
 	; check if the tile index is above 128, if so then 
 	; check if there's a box in hand, or if there's a box in front of us
+	call WaitNoMode3
 	ld a, [hl]						; get the tile type at that address
 	cp a, 127						; compare to 127, if > 127, carry bit will not be set
 	jp nc, .EnableCursor				; if carry bit set, jump to pick up box
@@ -1166,41 +1280,54 @@ DrawPlayer:
 	add 16							; make sure to set the sprite offsets
 	ld [hli], a
 	ld a, [mainCharacter_XPos]
-	add 8							; make sure to set the sprite offsets
+	ld b, a
+	ld a, [wPlayerTileTLOffsetX]
+	add b							; make sure to set the sprite offsets
 	ld [hli], a
-	
-	inc hl							; skip two memory locations as we're only updating positions
-	inc hl
+	ld a, [mainCharacter_TileTL]
+	ld [hli], a
+	ld a, [mainCharacter_TileFlags]
+	ld [hli], a
 
 	ld a, [mainCharacter_YPos]
 	add 16							; then add the metasprite offset							; make sure to set the sprite offsets
 	ld [hli], a
 	ld a, [mainCharacter_XPos]
-	add 8							; make sure to set the sprite offsets
-	add 8							; then add the metasprite offset
+	ld b, a
+	ld a, [wPlayerTileTROffsetX]
+	add b							; make sure to set the sprite offsets
 	ld [hli], a
-		
-	inc hl							; skip two memory locations as we're only updating positions
-	inc hl
+	ld a, [mainCharacter_TileTR]
+	ld [hli], a
+	ld a, [mainCharacter_TileFlags]
+	ld [hli], a
 
 	ld a, [mainCharacter_YPos]
 	add 16							; make sure to set the sprite offsets
 	add 8							; then add the metasprite offset
 	ld [hli], a
 	ld a, [mainCharacter_XPos]
-	add 8							; make sure to set the sprite offsets
+	ld b, a
+	ld a, [wPlayerTileBLOffsetX]
+	add b							; make sure to set the sprite offsets
 	ld [hli], a
-		
-	inc hl							; skip two memory locations as we're only updating positions
-	inc hl
+	ld a, [mainCharacter_TileBL]
+	ld [hli], a
+	ld a, [mainCharacter_TileFlags]
+	ld [hli], a
 
 	ld a, [mainCharacter_YPos]
 	add 16							; make sure to set the sprite offsets
 	add 8							; then add the metasprite offset
 	ld [hli], a
 	ld a, [mainCharacter_XPos]
-	add 8							; make sure to set the sprite offsets
-	add 8							; then add the metasprite offset
+	ld b, a
+	ld a, [wPlayerTileBROffsetX]
+	add b							; make sure to set the sprite offsets
+	ld [hli], a
+	ld a, [mainCharacter_TileBR]
+	ld [hli], a
+	ld a, [mainCharacter_TileFlags]
 	ld [hli], a
 .UpdateOAMFinished
 	ret
@@ -1239,6 +1366,7 @@ DrawCursorObject:
 	ld d, 0								; if it's not supposed to be enabled just set the positions to 0
 	ld e, 0
 .StartDrawing
+	call WaitNoMode3
 	; initialise the OAM
 	ld hl, _OAMRAM				; grab the address for the top of the OAM
 	ld a, [boxCursor_OAMOffset]

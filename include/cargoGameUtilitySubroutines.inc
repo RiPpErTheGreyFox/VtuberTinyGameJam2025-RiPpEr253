@@ -151,6 +151,40 @@ NumberToString:
     ld [hli], a                             ; end the string with 255
     ret
 
+; safely turns off the LCD
+; @clobbers a
+DisableLCD:
+.LoopStart							; main game loop
+	; Wait until it's *not* VBlank
+	ld a, [rLY]			; loads into the A register, the current scanline (rLY)
+	cp 144				; compares the value in the A register, against 144
+	jp nc, .LoopStart; jump if carry not set (if a > 144)
+.WaitVBlank2:
+	ld a, [rLY]			; loads into the A register, the current scanline (rLY)
+	cp 144				; compares the value in the A register, against 144
+	jp c, .WaitVBlank2	; jump if carry set (if a < 144)
+	; above is waiting for a full complete frame
+
+.WaitVBlank:
+	ld a, [rLY]					; loads into the A register, the current scanline (rLY)
+	cp 144						; compares the value in the A register, against 144
+	jp c, .WaitVBlank			; jump if carry set (if a < 144)
+
+	; Turn the LCD off
+	ld a, 0
+	ld [rLCDC], a
+
+	ret
+
+; enables the LCD
+; @clobbers a
+EnableLCD:
+	; Turn the LCD on
+	ld a, LCDCF_ON | LCDCF_BGON	| LCDCF_OBJON | LCDCF_BG8800 ; OR together the desired flags for LCD control
+	ld [rLCDC], a				; then push them to the LCD controller
+	
+	ret
+
 ; Wait for specified number of frames
 ; @param b: Number of frames to wait, gets dec'd at the start so add 1 to the input of param
 ; @clobbers: a

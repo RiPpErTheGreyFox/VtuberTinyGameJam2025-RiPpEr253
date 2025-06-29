@@ -179,3 +179,24 @@ Level select
 More puzzles/levels				- dropped
 CGB exclusive level?			- dropped
 GBA Easter Egg					- dropped
+
+Final Day To-do list:
+Fix the cursor bug 																						- ?
+- ten minutes 6:20
+Code in a page flip for the how to play and a placeholder page											- half hour
+- fourty minutes 6:58
+Finish the main menu graphics 																			- one hour
+- one hour		7:58
+Direction flipping on the main character sprite, ready for art pass, animation handler added as well 	- two hours	- one hour
+- half an hour animation handler done 8:27
+- 20 minutes direction flipping	8:50
+Art pass on the little fella																			- two hours
+Intro cutscene																							- one hour
+Dialogue with characters																				- one hour
+Tiny story that continues																				- two hours
+Inbetween level cutscenes																				- one hour
+use the art pass to design multiple levels and package it up 											- two hours
+When other graphics are done, put examples in how to play slide 										- half hour
+Document code																							- half hour
+Updated movement to have the first button press flip direction without moving 							- one hour
+Fine tune some sound effects, compose something in huge tracker 										- three hours

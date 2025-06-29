@@ -253,6 +253,11 @@ HowToPlayTilesEnd:
 HowToPlayTilemap:  INCBIN "gfx/backgrounds/HowToPlayBackground.tilemap"
 HowToPlayTilemapEnd:
 
+HowToPlay2Tiles: INCBIN "gfx/backgrounds/HowToPlayBackground2.2bpp"
+HowToPlay2TilesEnd:
+HowToPlay2Tilemap:  INCBIN "gfx/backgrounds/HowToPlayBackground2.tilemap"
+HowToPlay2TilemapEnd:
+
 MainMenuTiles: INCBIN "gfx/backgrounds/MainMenuBackground.2bpp"
 MainMenuTilesEnd:
 MainMenuTilemap:  INCBIN "gfx/backgrounds/MainMenuBackground.tilemap"
