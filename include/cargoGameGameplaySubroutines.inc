@@ -473,6 +473,10 @@ UpdatePlayerAnimation:
 	jp EndOfAnimFunc
 
 .TimeToSwap
+	; we're moving so play the walking sound
+	ld hl, sound_character_walk
+	call PlaySoundHL
+
 	ld a, 0
 	ld [wPlayerAnimationCounter], a
 
@@ -1226,6 +1230,9 @@ PlaceBox:
 	call DisableBox
 	ld a, 0
 	ld [wBoxBeingHeld], a			; box is no longer in hands
+	; play a drop item sound
+	ld hl, sound_item_drop
+	call PlaySoundHL
 	jp .EndOfFunc
 	; otherwise if there is a box already there
 .PickUpBox
@@ -1256,6 +1263,10 @@ PlaceBox:
 	ld [wBoxBeingHeld], a
 	ld [wBoxInPlay], a
 	call SpawnBoxAtConveyor			; place down another box at the conveyor (validity checks are done in function)
+
+	; play a pickup item sound
+	ld hl, sound_item_grab
+	call PlaySoundHL
 
 .EndOfFunc
 	ret
@@ -1452,6 +1463,9 @@ jp nz, .CheckBoxSpawn
 	ld a, 1										; go back to cutscene after level is over
 	ld [wCurrentScene], a
 
+	ld hl, sound_speedup_round
+	call PlaySoundHL
+
 	; give a 2 second wait time
 	ld b, 120
 	call WaitFrames
@@ -1469,39 +1483,17 @@ jp nz, .CheckBoxSpawn
 	;and a, PADF_B
 	;jp nz, .BoxDespawn
 
-	jp .CheckStartPressed
+	jp .EndOfFunc
 
 .BoxSpawn
 	; check if Debounce done
 	call CheckButtonDebounce				; check the button debounce status
 	cp a, 1									; if a == 1, zero flag will set
-	jp z, .CheckStartPressed				; skip the button
+	jp z, .EndOfFunc				; skip the button
 	call SetButtonDebounce					; otherwise debounce is clear and we can press the button
 	call PlaceBox							; make sure to set debounce ourselves
-	jp .CheckStartPressed
+	jp .EndOfFunc
 .BoxDespawn
 	;call DisableBox
-.CheckStartPressed:
-	;ld a, [wCurKeys]
-	;and a, PADF_A
-	;jp nz, .StartPressed
-	
-	ld a, [wCurKeys]
-	and a, PADF_B
-	jp nz, .StartPressed
-	
-	ld a, [wCurKeys]
-	and a, PADF_START
-	jp nz, .StartPressed
-
-	jp .EndOfFunc
-.StartPressed:
-	; Cycle sound to clear all playing sounds
-	call DisableSound
-	call EnableSound
-	ld b, 31					; wait a half second to insure against
-	;call WaitFrames				; double pressing
-	;jp MainGameStart
-
 .EndOfFunc
 	ret

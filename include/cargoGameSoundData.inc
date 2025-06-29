@@ -130,7 +130,7 @@ sound_item_grab: ; name the sound with a label
 	DB %10101100	; Bits 7-0: lower 8 bits of the sound frequency
 	DB %10000111	; Bit 7: trigger, 6: use length, 5-3: unused, 2-0 highest 3 bits of frequency
 
-sound_ball_bounce: ; give the sound a name in the code
+sound_character_text: ; give the sound a name in the code
 	DW $FF1F 		; SOUND_CH4_START ; specify which channel
 	; in this case channel 4 (noise)
 	DB %00000000	; Data to be written to SOUND_CH4_START
@@ -143,7 +143,7 @@ sound_character_walk: ; give the sound a name in the code
 	DW $FF1F 		; SOUND_CH4_START ; specify which channel
 	; in this case channel 4 (noise)
 	DB %00000000	; Data to be written to SOUND_CH4_START
-	DB %00000100	; Data to be written to SOUND_CH4_LENGTH
+	DB %00111101	; Data to be written to SOUND_CH4_LENGTH
 	DB %11110111	; Data to be written to SOUND_CH4_ENVELOPE
 	DB %01011101	; Data to be written to SOUND_CH4_POLY
 	DB %11000110	; Data to be written to SOUND_CH4_Options

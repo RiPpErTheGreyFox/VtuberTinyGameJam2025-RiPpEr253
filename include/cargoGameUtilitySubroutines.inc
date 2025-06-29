@@ -122,7 +122,7 @@ DrawTextTilesLoop:
 	; move to the next character and next background tile
 	jp DrawTextTilesLoop
 
-; Draws text with a delay, giving a typewriter like effect
+; Draws text with a delay and sound, giving a typewriter like effect
 ; @param de: address of the first tile to start writing to
 ; @param hl: pointer to the address containing the literal string
 ; @clobbers a
@@ -146,8 +146,12 @@ DrawTextTilesWithDelays:
 	inc hl
 	inc de
 
-	jp DrawTextTilesWithDelays
+	push hl
+	ld hl, sound_character_text
+	call PlaySoundHL
+	pop hl
 
+	jp DrawTextTilesWithDelays
 
 ; Takes the number in the A register, turns it into BCD and outputs a string to hl
 ; @param a: the number to turn into a string
