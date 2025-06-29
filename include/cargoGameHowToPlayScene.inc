@@ -13,6 +13,12 @@ InitialiseHowToPlay:
 	ld bc, HowToPlayTilesEnd - HowToPlayTiles		; load the length of Tiles into BC
 	call Memcopy				; call the memcopy subroutine
 
+	; Copy tile data into VRAM
+	ld de, (HowToPlayTiles + $0800)			; load the address of the tiles into the DE register
+	ld hl, $8800							; load the beginning VRAM address into HL (HL is easy to inc/dec)
+	ld bc, HowToPlayTilesEnd - (HowToPlayTiles + $0800)		; load the length of Tiles into BC
+	call MemcopyNoMode3					; call the memcopy subroutine
+	
 	; The above tile loading will clobber the tilemap in VRAM, but for now just load the other half of tiles
 
 	; Copy tilemap data into VRAM (functionally identical to above but pointing to tilemap data and addresses)
@@ -44,8 +50,6 @@ HowToPlayFlipToPageTwo:
 	ld bc, HowToPlay2TilesEnd - HowToPlay2Tiles		; load the length of Tiles into BC
 	call Memcopy				; call the memcopy subroutine
 
-	; The above tile loading will clobber the tilemap in VRAM, but for now just load the other half of tiles
-
 	; Copy tilemap data into VRAM (functionally identical to above but pointing to tilemap data and addresses)
 	ld de, HowToPlay2Tilemap
 	ld hl, $9800
@@ -63,7 +67,7 @@ UpdateHowToPlayScene:
     call UpdateKeys
 
     ld a, [wCurKeys]
-	and a, PADF_START
+	and a, PADF_A
 	jp nz, .StartPressed
 
     jp .EndOfFunc

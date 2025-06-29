@@ -2,13 +2,30 @@ SECTION "Subroutines", ROM0
 
 ; Subroutines
 
-; Copy bytes from one are to another.
+; Copy bytes from one area to another.
 ; @param de: Source
 ; @param hl: Destination
 ; @param bc: Length
 ; @return hl: current memory address
 Memcopy:
 	ld a, [de]					; load one byte from [DE] into the A register
+	ld [hli], a					; place the byte from A into the address at HL and increment it
+	inc de						; increment the address stored in DE
+	dec bc						; decrement the counter in BC
+	ld a, b						; load register B's data into the Accumulator
+	or a, c						; OR it with C to check if both bytes are 0
+	jp nz, Memcopy				; loop if not zero
+
+	ret
+
+; Copy bytes from one area to another.
+; @param de: Source
+; @param hl: Destination
+; @param bc: Length
+; @return hl: current memory address
+MemcopyNoMode3:
+	ld a, [de]					; load one byte from [DE] into the A register
+	call WaitNoMode3
 	ld [hli], a					; place the byte from A into the address at HL and increment it
 	inc de						; increment the address stored in DE
 	dec bc						; decrement the counter in BC
@@ -135,9 +152,19 @@ DrawTextTilesWithDelays:
 ; Takes the number in the A register, turns it into BCD and outputs a string to hl
 ; @param a: the number to turn into a string
 ; @param hl: memory address of the block of RAM to output the string to
+; @clobbers b
 NumberToString:
-	add 0
-    daa                                     ; Use Decimal Adjust to turn the 8-bit number into a BCD number
+	ld b, a									; setup a loop to count up to fix an issue with setting BCD numbers
+	inc b									; loop decrements short 1, so inc b
+	ld a, 0
+.LoopPoint:
+	dec b
+	jp z, .breakloop
+	add 1
+	daa
+	jp nz, .LoopPoint
+.breakloop
+    ;daa                                     ; Use Decimal Adjust to turn the 8-bit number into a BCD number
     ld b, a                                 ; copy the number into the b register
     swap a                                  ; swap the 4-bit nibbles so the tens is in the 4 LSB
     and %00001111                           ; mask out the top nibble
@@ -748,12 +775,31 @@ ConvertVRAMTileMapToROMTileMap:
 
 	;check which level number it is and adjust the offset accordingly
 	ld a, c
+	cp a, 0
+	jp z, .Cutscene
 	cp a, 1
 	jp z, .TileMapOne
+	cp a, 2
+	jp z, .TileMapTwo
+	cp a, 3
+	jp z, .TileMapThree
 	; TODO: if we have more than one level, add more conditionals
+.Cutscene
+	ld bc, CutsceneTilemap
+	add hl, bc
+	jp .EndOfFunc
 .TileMapOne
 	ld bc, LevelOneTilemap
 	add hl, bc
+	jp .EndOfFunc
+.TileMapTwo
+	ld bc, LevelTwoTilemap
+	add hl, bc
+	jp .EndOfFunc
+.TileMapThree
+	ld bc, LevelThreeTilemap
+	add hl, bc
+.EndOfFunc
 	ret
 
 ; Updates the controller variables

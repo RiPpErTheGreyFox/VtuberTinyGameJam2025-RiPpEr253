@@ -58,13 +58,13 @@ InitialisePlayer:
 	call TileLoader
 
 	; for now, main character tiles are upper is $+2 and lower is $+7
-	ld a, c
+	ld a, PLAYER_TL_FRAME1_TILE
 	ld [mainCharacter_TileTL],a
-	inc a
+	ld a, PLAYER_TR_FRAME1_TILE
 	ld [mainCharacter_TileTR], a
-	inc a
+	ld a, PLAYER_BL_FRAME1_TILE
 	ld [mainCharacter_TileBL],a
-	inc a
+	ld a, PLAYER_BR_FRAME1_TILE
 	ld [mainCharacter_TileBR], a
 
 	; get OAM offset
@@ -450,8 +450,12 @@ UpdatePlayer:
 .FinishCollisionChecks
 	ld a, [mainCharacter_AllowMove]
 	cp a, 1
-	jp z, .EndOfFunc						; if we're not allowed to move, assume we're moving
+	jp z, .ResetToFrame1					; if we're not allowed to move, assume we're moving
 	call UpdatePlayerAnimation				; only call player animation update when moving
+	jp .EndOfFunc
+.ResetToFrame1
+	ld a, $FF								; go to the last frame of the animation so that the next frame command works
+	call SetPlayerAnimationFrame
 .EndOfFunc
 	call UpdatePlayerFlipped
 	ret
@@ -466,16 +470,19 @@ UpdatePlayerAnimation:
 	jp nc, .TimeToSwap
 	inc a
 	ld [wPlayerAnimationCounter], a
-	jp .EndOfFunc
+	jp EndOfAnimFunc
 
 .TimeToSwap
 	ld a, 0
 	ld [wPlayerAnimationCounter], a
 
-	ld a, [wPlayerAnimationCurrentFrame]		
-	; check the tile ID and if it matches the first tile in the set
+	ld a, [wPlayerAnimationCurrentFrame]	
+SetPlayerAnimationFrame:	
+	; check the frame number and jump to the correct next frame (zero indexed)
 	cp a, 0
-	jp nz, .SecondFrame
+	jp z, .SecondFrame
+	cp a, 1
+	jp z, .ThirdFrame
 .FirstFrame
 	ld a, PLAYER_TL_FRAME1_TILE
 	ld [mainCharacter_TileTL], a
@@ -485,7 +492,7 @@ UpdatePlayerAnimation:
 	ld [mainCharacter_TileBL], a
 	ld a, PLAYER_BR_FRAME1_TILE
 	ld [mainCharacter_TileBR], a
-	ld a, 1
+	ld a, 0	; zero indexed
 	ld [wPlayerAnimationCurrentFrame], a
 	jp .EndOfFunc
 	; load in the first set of tiles
@@ -498,11 +505,25 @@ UpdatePlayerAnimation:
 	ld [mainCharacter_TileBL], a
 	ld a, PLAYER_BR_FRAME2_TILE
 	ld [mainCharacter_TileBR], a
-	ld a, 0
+	ld a, 1	; zero indexed
+	ld [wPlayerAnimationCurrentFrame], a
+	jp .EndOfFunc
+	; load in the second set of tiles
+.ThirdFrame
+	ld a, PLAYER_TL_FRAME3_TILE
+	ld [mainCharacter_TileTL], a
+	ld a, PLAYER_TR_FRAME3_TILE
+	ld [mainCharacter_TileTR], a
+	ld a, PLAYER_BL_FRAME3_TILE
+	ld [mainCharacter_TileBL], a
+	ld a, PLAYER_BR_FRAME3_TILE
+	ld [mainCharacter_TileBR], a
+	ld a, 2	; zero indexed
 	ld [wPlayerAnimationCurrentFrame], a
 	jp .EndOfFunc
 	; load in the second set of tiles
 .EndOfFunc
+EndOfAnimFunc:
 	ret
 
 ; sets up all the flags and offsets to set up if we're flipped or not
@@ -640,17 +661,17 @@ LoadLevelSpecificData:
 
 .LevelTwoLoad	
 	; Copy tile data into VRAM
-	ld de, LevelOneTiles				; load the address of the tiles into the DE register
+	ld de, LevelTwoTiles				; load the address of the tiles into the DE register
 	ld hl, $9000				; load the beginning VRAM address into HL (HL is easy to inc/dec)
-	ld bc, LevelOneTilesEnd - LevelOneTiles		; load the length of Tiles into BC
+	ld bc, LevelTwoTilesEnd - LevelTwoTiles		; load the length of Tiles into BC
 	call Memcopy				; call the memcopy subroutine
 
 	; The above tile loading will clobber the tilemap in VRAM, but for now just load the other half of tiles
 
 	; Copy tilemap data into VRAM (functionally identical to above but pointing to tilemap data and addresses)
-	ld de, LevelOneTilemap
+	ld de, LevelTwoTilemap
 	ld hl, $9800
-	ld bc, LevelOneTilemapEnd - LevelOneTilemap
+	ld bc, LevelTwoTilemapEnd - LevelTwoTilemap
 	call Memcopy				; call the memcopy subroutine
 
 	; first load the tiles and tilemap into VRAM
@@ -679,17 +700,17 @@ LoadLevelSpecificData:
 	jp .EndOfFunc
 .LevelThreeLoad	
 	; Copy tile data into VRAM
-	ld de, LevelOneTiles				; load the address of the tiles into the DE register
+	ld de, LevelThreeTiles				; load the address of the tiles into the DE register
 	ld hl, $9000				; load the beginning VRAM address into HL (HL is easy to inc/dec)
-	ld bc, LevelOneTilesEnd - LevelOneTiles		; load the length of Tiles into BC
+	ld bc, LevelThreeTilesEnd - LevelThreeTiles		; load the length of Tiles into BC
 	call Memcopy				; call the memcopy subroutine
 
 	; The above tile loading will clobber the tilemap in VRAM, but for now just load the other half of tiles
 
 	; Copy tilemap data into VRAM (functionally identical to above but pointing to tilemap data and addresses)
-	ld de, LevelOneTilemap
+	ld de, LevelThreeTilemap
 	ld hl, $9800
-	ld bc, LevelOneTilemapEnd - LevelOneTilemap
+	ld bc, LevelThreeTilemapEnd - LevelThreeTilemap
 	call Memcopy				; call the memcopy subroutine
 
 	; first load the tiles and tilemap into VRAM
@@ -1220,6 +1241,8 @@ PlaceBox:
 	ld b, a
 	push bc
 	push hl							; save the VRAM tilemap address
+	ld a, [wLevelSelected]
+	ld c, a
 	call ConvertVRAMTileMapToROMTileMap	; grab the original tilemap from ROM
 	ld a, [hl]						; get the original tile underneath
 	pop hl							; grab the VRAM tilemap address again
@@ -1405,7 +1428,7 @@ call CheckForVictory
 	call NumberToString
 
 	ld hl, wNumberStringData
-	ld de, $9800 + $10
+	ld de, $9800 + $12
 	call DrawTextTilesLoop
 
 call UpdateConveyoranimation
@@ -1419,12 +1442,15 @@ ld a, [wVictoryFlagSet]
 cp a, 1
 jp nz, .CheckBoxSpawn
 	ld hl, wVictoryString
-	ld de, $9800 + 96
+	ld de, $98A3
 	call DrawTextTilesLoop
 	
 	ld a, [wLevelSelected]						; increase the level counter
 	inc a
 	ld [wLevelSelected], a
+
+	ld a, 1										; go back to cutscene after level is over
+	ld [wCurrentScene], a
 
 	; give a 2 second wait time
 	ld b, 120

@@ -18,7 +18,7 @@ wCurKeys: db							; label: declare byte, reserves a byte for use later
 wNewKeys: db
 
 SECTION "Item Data", ROMX
-wVictoryString::  db "youre winner", 255
+wVictoryString::  db "level complete", 255
 SECTION "NumberStringData", WRAM0
 wNumberStringData: db
 	:db
@@ -88,7 +88,7 @@ EntryPoint:
 	call EnableSound
 	ld a, 1
 	ld [wLevelSelected], a 
-	ld a, 0						; TODO: hardcoding the game scene
+	ld a, 0 
 	ld [wCurrentScene], a
 
 ReloadGame:
@@ -160,9 +160,7 @@ ProgramEntry:							; main game loop
 	ld a, 0
 	ld [wButtonDebounce], a
 
-	; Turn the LCD on
-	ld a, LCDCF_ON | LCDCF_BGON	| LCDCF_OBJON | LCDCF_BG8800 ; OR together the desired flags for LCD control
-	ld [rLCDC], a				; then push them to the LCD controller
+	call EnableLCD
 	
 	; initialise the sound driver and start the song
 	;ld hl, sample_song
@@ -212,7 +210,7 @@ ProgramMain:
 .FinishedTickingScene
 
 	; tick the music driver for the frame
-	;call hUGE_dosound
+	; call hUGE_dosound
 
 jp ProgramMain
 
@@ -220,6 +218,23 @@ jp ProgramMain
 ;;	DATA
 ;;	BLOCK
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+SECTION "LevelData", ROMX
+
+LevelOneTiles: INCBIN "gfx/backgrounds/LevelBackground1.2bpp"
+LevelOneTilesEnd:
+LevelOneTilemap:  INCBIN "gfx/backgrounds/LevelBackground1.tilemap"
+LevelOneTilemapEnd:
+
+LevelTwoTiles: INCBIN "gfx/backgrounds/LevelBackground2.2bpp"
+LevelTwoTilesEnd:
+LevelTwoTilemap:  INCBIN "gfx/backgrounds/LevelBackground2.tilemap"
+LevelTwoTilemapEnd:
+
+LevelThreeTiles: INCBIN "gfx/backgrounds/LevelBackground3.2bpp"
+LevelThreeTilesEnd:
+LevelThreeTilemap:  INCBIN "gfx/backgrounds/LevelBackground3.tilemap"
+LevelThreeTilemapEnd:
 
 SECTION "Graphics Data", ROMX
 
@@ -237,11 +252,6 @@ ConveyorsSpriteDataEnd:
 
 AlphabetTiles: INCBIN "gfx/backgrounds/text-font.2bpp"
 AlphabetTilesEnd:
-
-LevelOneTiles: INCBIN "gfx/backgrounds/Level1Background.2bpp"
-LevelOneTilesEnd:
-LevelOneTilemap:  INCBIN "gfx/backgrounds/Level1Background.tilemap"
-LevelOneTilemapEnd:
 
 CutsceneTiles: INCBIN "gfx/backgrounds/Cutscene1.2bpp"
 CutsceneTilesEnd:

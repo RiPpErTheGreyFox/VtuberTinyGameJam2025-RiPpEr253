@@ -190,13 +190,95 @@ Finish the main menu graphics 																			- one hour
 Direction flipping on the main character sprite, ready for art pass, animation handler added as well 	- two hours	- one hour
 - half an hour animation handler done 8:27
 - 20 minutes direction flipping	8:50
-Art pass on the little fella																			- two hours
-Intro cutscene																							- one hour
+use the art pass to design multiple levels 																- two hours
+- 35 minutes all three levels designed 9:35
 Dialogue with characters																				- one hour
+- 10 minutes, scratch dialog written 9:00
 Tiny story that continues																				- two hours
+- included in the dialgoue section
+Art pass on the little fella																			- two hours
+- 2.5 hours	Animation and graphics of fella done, also included a bug fix to do with DAA instruction issues (30 becoming 23) 11:00
+Intro cutscene																							- one hour
 Inbetween level cutscenes																				- one hour
-use the art pass to design multiple levels and package it up 											- two hours
+- 3 hours includes all cutscenes 1:51
 When other graphics are done, put examples in how to play slide 										- half hour
+- 20 minutes how to is finished 2:10
 Document code																							- half hour
+package it up																							- half hour
 Updated movement to have the first button press flip direction without moving 							- one hour
 Fine tune some sound effects, compose something in huge tracker 										- three hours
+
+Level ideas:
+Level 1
+Boxes: 8
+Danger: 1, 1
+Area 3*3
+
+Level 2
+Boxes: 15
+Danger: 5, 5
+Area 6*4
+
+Level 3
+Boxes: 30
+Danger: 10, 10
+Area 8*6
+
+Scratch Dialogue:
+Intro:
+Hey newbie
+
+Welcome to the
+Cargo Docks,
+
+We got some boxes
+That need to be
+
+loaded into the
+cargo hold of
+
+the ship that
+docked earlier,
+
+Stack the boxes
+onto their lift
+
+area so they can
+leave asap,
+
+You're a Boxhound
+now kid.
+
+End Level 1:
+Not a bad
+job newbie,
+
+But now you
+are going to be
+
+working with some
+more dangerous
+
+crates, think
+ahead when
+
+stacking!
+
+End Level 2:
+Hey that was
+good, now you
+
+Have a big final
+job before you
+
+get to go home!
+
+End Level 3:
+Wow, not bad
+for a newbie
+
+I guess that
+means you get
+
+to clock out now
+see you later!
